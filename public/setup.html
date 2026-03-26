@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>InfoMind - 初始配置</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+        rel="stylesheet" />
+    <style>
+        :root {
+            --bg: #0a0c12;
+            --surface: #13161f;
+            --elevated: #1a1e2a;
+            --border: #252b3b;
+            --accent: #6366f1;
+            --accent2: #38bdf8;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --text: #f0f4ff;
+            --muted: #6b7a99;
+            --font: 'Inter', 'Noto Sans SC', sans-serif;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* ── Animated background ── */
+        .bg-mesh {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(ellipse 80% 60% at 20% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 80% at 80% 80%, rgba(56, 189, 248, 0.08) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 50% at 50% 0%, rgba(167, 139, 250, 0.06) 0%, transparent 50%);
+        }
+
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px);
+            background-size: 48px 48px;
+        }
+
+        /* ── Layout ── */
+        .page {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 900px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 32px;
+        }
+
+        /* ── Header ── */
+        .header {
+            text-align: center;
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .logo-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #6366f1, #38bdf8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            box-shadow: 0 0 30px rgba(99, 102, 241, 0.4);
+            animation: pulse-glow 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse-glow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 30px rgba(99, 102, 241, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 0 50px rgba(99, 102, 241, 0.7), 0 0 80px rgba(56, 189, 248, 0.3);
+            }
+        }
+
+        .logo-text {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #a78bfa, #6366f1, #38bdf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 0.95rem;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        /* ── Step indicator ── */
+        .steps {
+            display: flex;
+            align-items: center;
+            gap: 0;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .step-circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            background: var(--elevated);
+            border: 2px solid var(--border);
+            color: var(--muted);
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+
+        .step-circle.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+            box-shadow: 0 0 16px rgba(99, 102, 241, 0.5);
+        }
+
+        .step-circle.done {
+            background: var(--success);
+            border-color: var(--success);
+            color: white;
+        }
+
+        .step-label {
+            font-size: 0.8rem;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+
+        .step-label.active {
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .step-connector {
+            width: 48px;
+            height: 2px;
+            background: var(--border);
+            margin: 0 8px;
+            transition: background 0.3s;
+        }
+
+        .step-connector.done {
+            background: var(--success);
+        }
+
+        /* ── Main card ── */
+        .card {
+            width: 100%;
+            max-width: 620px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 8px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .card-header {
+            padding: 24px 28px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .card-header-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+        }
+
+        .card-header h2 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 3px;
+        }
+
+        .card-header p {
+            font-size: 0.82rem;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        /* ── Step panels ── */
+        .step-panel {
+            display: none;
+            padding: 28px;
+        }
+
+        .step-panel.visible {
+            display: block;
+            animation: stepIn 0.3s ease;
+        }
+
+        @keyframes stepIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* ── Form fields ── */
+        .field {
+            margin-bottom: 20px;
+        }
+
+        .field label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .field-desc {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .field input,
+        .field select {
+            width: 100%;
+            padding: 11px 14px;
+            background: var(--elevated);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 0.875rem;
+            font-family: var(--font);
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .field input:focus,
+        .field select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        .field input::placeholder {
+            color: var(--muted);
+        }
+
+        .input-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-row input {
+            flex: 1;
+        }
+
+        .btn-icon-sm {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            flex-shrink: 0;
+            background: var(--elevated);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: all 0.2s;
+            color: var(--muted);
+        }
+
+        .btn-icon-sm:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* ── Provider presets ── */
+        .provider-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .provider-card {
+            background: var(--elevated);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .provider-card:hover {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.08);
+        }
+
+        .provider-card.selected {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.12);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+        }
+
+        .provider-icon {
+            font-size: 1.6rem;
+            margin-bottom: 6px;
+        }
+
+        .provider-name {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .provider-sub {
+            font-size: 0.65rem;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        /* ── Test result card ── */
+        .test-result-box {
+            display: none;
+            padding: 14px;
+            border-radius: 10px;
+            margin-top: 14px;
+            font-size: 0.85rem;
+            border: 1px solid;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .test-result-box.success {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .test-result-box.error {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: var(--error);
+            color: var(--error);
+        }
+
+        .test-result-box.loading {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* ── Actions ── */
+        .card-footer {
+            padding: 20px 28px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .btn-primary {
+            padding: 11px 28px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent), #7c6ff7);
+            border: none;
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 600;
+            font-family: var(--font);
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 25px rgba(99, 102, 241, 0.45);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            padding: 10px 20px;
+            border-radius: 10px;
+            background: var(--elevated);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.875rem;
+            font-family: var(--font);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .btn-link {
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-decoration: underline;
+            font-family: var(--font);
+            transition: color 0.2s;
+        }
+
+        .btn-link:hover {
+            color: var(--text);
+        }
+
+        /* ── Success page ── */
+        .success-content {
+            padding: 40px 28px;
+            text-align: center;
+        }
+
+        .success-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: rgba(16, 185, 129, 0.1);
+            border: 2px solid var(--success);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin: 0 auto 20px;
+            animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes bounceIn {
+            from {
+                transform: scale(0.3);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .success-content h2 {
+            font-size: 1.4rem;
+            margin-bottom: 8px;
+        }
+
+        .success-content p {
+            color: var(--muted);
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .feature-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--elevated);
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 0.85rem;
+        }
+
+        .feature-item .fi-icon {
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        /* ── Info tag ── */
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            color: var(--accent);
+        }
+
+        .required-badge {
+            font-size: 0.65rem;
+            color: var(--error);
+            background: rgba(239, 68, 68, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 540px) {
+            .provider-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .steps {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-mesh"></div>
+    <div class="bg-grid"></div>
+
+    <div class="page">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">🧠</div>
+                <span class="logo-text">InfoMind</span>
+            </div>
+            <h1>初始配置向导</h1>
+            <p>配置大模型 API，让 InfoMind 自动对内容进行智能分类与摘要</p>
+        </div>
+
+        <!-- Step indicator -->
+        <div class="steps" id="stepsBar">
+            <div class="step-item">
+                <div class="step-circle active" id="step1-dot">1</div>
+                <span class="step-label active" id="step1-lbl">选择提供商</span>
+            </div>
+            <div class="step-connector" id="conn-1-2"></div>
+            <div class="step-item">
+                <div class="step-circle" id="step2-dot">2</div>
+                <span class="step-label" id="step2-lbl">填写 API Key</span>
+            </div>
+            <div class="step-connector" id="conn-2-3"></div>
+            <div class="step-item">
+                <div class="step-circle" id="step3-dot">3</div>
+                <span class="step-label" id="step3-lbl">测试连接</span>
+            </div>
+            <div class="step-connector" id="conn-3-4"></div>
+            <div class="step-item">
+                <div class="step-circle" id="step4-dot">4</div>
+                <span class="step-label" id="step4-lbl">完成</span>
+            </div>
+        </div>
+
+        <!-- Card -->
+        <div class="card">
+
+            <!-- ── STEP 1: Choose Provider ── -->
+            <div id="panel-1" class="step-panel visible">
+                <div class="card-header" style="padding:24px 28px 0;border:none;">
+                    <div class="card-header-icon" style="background:rgba(99,102,241,0.15);">🤖</div>
+                    <div>
+                        <h2>选择 AI 提供商</h2>
+                        <p>选择你使用的大模型服务商，或自定义接入任意 OpenAI Compatible API</p>
+                    </div>
+                </div>
+                <div style="padding:24px 28px 0;">
+                    <div class="provider-grid" id="providerGrid">
+                        <div class="provider-card selected" data-url="https://api.openai.com/v1"
+                            data-model="gpt-4o-mini" onclick="selectProvider(this)">
+                            <div class="provider-icon">🟢</div>
+                            <div class="provider-name">OpenAI</div>
+                            <div class="provider-sub">GPT-4o / 3.5</div>
+                        </div>
+                        <div class="provider-card" data-url="https://api.anthropic.com/v1"
+                            data-model="claude-3-5-haiku-20241022" onclick="selectProvider(this)">
+                            <div class="provider-icon">🟠</div>
+                            <div class="provider-name">Anthropic</div>
+                            <div class="provider-sub">Claude 3.5</div>
+                        </div>
+                        <div class="provider-card" data-url="https://dashscope.aliyuncs.com/compatible-mode/v1"
+                            data-model="qwen-turbo" onclick="selectProvider(this)">
+                            <div class="provider-icon">🔵</div>
+                            <div class="provider-name">通义千问</div>
+                            <div class="provider-sub">阿里云 Qwen</div>
+                        </div>
+                        <div class="provider-card" data-url="https://api.deepseek.com/v1" data-model="deepseek-chat"
+                            onclick="selectProvider(this)">
+                            <div class="provider-icon">🐳</div>
+                            <div class="provider-name">DeepSeek</div>
+                            <div class="provider-sub">DeepSeek-V3</div>
+                        </div>
+                        <div class="provider-card" data-url="https://generativelanguage.googleapis.com/v1beta/openai"
+                            data-model="gemini-2.0-flash" onclick="selectProvider(this)">
+                            <div class="provider-icon">💎</div>
+                            <div class="provider-name">Gemini</div>
+                            <div class="provider-sub">Google AI</div>
+                        </div>
+                        <div class="provider-card" data-url="" data-model="" onclick="selectProvider(this)"
+                            data-custom="true">
+                            <div class="provider-icon">⚙️</div>
+                            <div class="provider-name">自定义</div>
+                            <div class="provider-sub">任意 OpenAI Compatible</div>
+                        </div>
+                    </div>
+                    <!-- Custom URL -->
+                    <div class="field" id="customUrlField" style="display:none">
+                        <label>自定义 Base URL</label>
+                        <input type="url" id="customBaseUrl" placeholder="http://localhost:11434/v1 (例如 Ollama)" />
+                    </div>
+                    <div class="field" id="customModelField" style="display:none">
+                        <label>模型名称</label>
+                        <input type="text" id="customModel" placeholder="例如: llama3.2, mixtral, etc." />
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <span class="tag">支持任何 OpenAI Compatible 接口</span>
+                    <button class="btn-primary" onclick="goStep(2)">下一步 →</button>
+                </div>
+            </div>
+
+            <!-- ── STEP 2: API Key ── -->
+            <div id="panel-2" class="step-panel">
+                <div class="card-header" style="padding:24px 28px 0;border:none;">
+                    <div class="card-header-icon" style="background:rgba(251,191,36,0.15);">🔑</div>
+                    <div>
+                        <h2>填写 API Key <span class="required-badge">必填</span></h2>
+                        <p id="apiKeyHint">请填写你的 OpenAI API Key</p>
+                    </div>
+                </div>
+                <div style="padding:24px 28px 0;">
+                    <div class="field">
+                        <label>API Base URL</label>
+                        <p class="field-desc">提供商的 API 接口地址，已自动填写</p>
+                        <input type="url" id="cfgBaseUrl" />
+                    </div>
+                    <div class="field">
+                        <label>API Key <span class="required-badge">必填</span></label>
+                        <p class="field-desc">API Key 将通过 AES-256 加密存储在本地，不会上传</p>
+                        <div class="input-row">
+                            <input type="password" id="cfgApiKey" placeholder="粘贴你的 API Key..." />
+                            <button class="btn-icon-sm" title="显示/隐藏" onclick="toggleKey()">👁️</button>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>模型名称</label>
+                        <p class="field-desc">用于分类和摘要生成的模型，推荐轻量快速模型</p>
+                        <input type="text" id="cfgModel" />
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn-secondary" onclick="goStep(1)">← 上一步</button>
+                    <button class="btn-primary" id="nextToTestBtn" onclick="goStep(3)">下一步 →</button>
+                </div>
+            </div>
+
+            <!-- ── STEP 3: Test ── -->
+            <div id="panel-3" class="step-panel">
+                <div class="card-header" style="padding:24px 28px 0;border:none;">
+                    <div class="card-header-icon" style="background:rgba(16,185,129,0.15);">🧪</div>
+                    <div>
+                        <h2>测试 API 连接</h2>
+                        <p>发送一条测试消息，确认 API Key 有效且服务可正常调用</p>
+                    </div>
+                </div>
+                <div style="padding:24px 28px 0;">
+                    <div
+                        style="background:var(--elevated);border-radius:12px;padding:16px;margin-bottom:16px;font-size:0.85rem;">
+                        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">
+                            <span style="color:var(--muted);white-space:nowrap;">提供商:</span>
+                            <span id="summary-provider" style="font-weight:600;"></span>
+                        </div>
+                        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">
+                            <span style="color:var(--muted);white-space:nowrap;">Base URL:</span>
+                            <span id="summary-url"
+                                style="font-size:0.78rem;word-break:break-all;color:var(--accent);"></span>
+                        </div>
+                        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">
+                            <span style="color:var(--muted);white-space:nowrap;">模型:</span>
+                            <span id="summary-model" style="font-weight:600;"></span>
+                        </div>
+                        <div style="display:flex;gap:10px;align-items:flex-start;">
+                            <span style="color:var(--muted);white-space:nowrap;">API Key:</span>
+                            <span id="summary-key" style="font-family:monospace;font-size:0.8rem;"></span>
+                        </div>
+                    </div>
+
+                    <div class="test-result-box" id="testResultBox"></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn-secondary" onclick="goStep(2)">← 修改配置</button>
+                    <div style="display:flex;gap:10px;">
+                        <button class="btn-secondary" id="testBtn" onclick="runTest()">🧪 测试连接</button>
+                        <button class="btn-primary" id="saveBtn" onclick="saveAndFinish()">保存并完成 ✓</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── STEP 4: Done ── -->
+            <div id="panel-4" class="step-panel">
+                <div class="success-content">
+                    <div class="success-icon">✅</div>
+                    <h2>配置完成！</h2>
+                    <p>InfoMind 已准备就绪，开始构建你的知识书架吧</p>
+                    <div class="feature-list">
+                        <div class="feature-item">
+                            <span class="fi-icon">📚</span>
+                            <div>
+                                <div style="font-weight:600;margin-bottom:2px;">书架式展示</div>
+                                <div style="font-size:0.78rem;color:var(--muted);">同作者内容自动聚合，按行业分类展示</div>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <span class="fi-icon">🤖</span>
+                            <div>
+                                <div style="font-weight:600;margin-bottom:2px;">AI 自动分类</div>
+                                <div style="font-size:0.78rem;color:var(--muted);">添加链接后自动识别行业、生成摘要</div>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <span class="fi-icon">🔌</span>
+                            <div>
+                                <div style="font-weight:600;margin-bottom:2px;">OpenClaw 直接发送链接</div>
+                                <div style="font-size:0.78rem;color:var(--muted);">配置 Skill 后，对 Agent 说出链接即可收藏</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn-primary" style="width:100%;padding:14px;" onclick="goToApp()">
+                        🚀 进入知识书架
+                    </button>
+                    <button class="btn-link" style="margin-top:12px;display:block;" onclick="goToApp()">
+                        稍后再说，跳过配置
+                    </button>
+                </div>
+            </div>
+
+        </div><!-- /.card -->
+
+        <!-- Footer hint -->
+        <p style="font-size:0.75rem;color:var(--muted);text-align:center;">
+            配置信息仅保存在本地 · 已进入书架？<a href="/" style="color:var(--accent);text-decoration:none;">直接进入</a>
+        </p>
+    </div>
+
+    <script>
+        const PROVIDERS = {
+            'OpenAI': { name: 'OpenAI', url: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
+            'Anthropic': { name: 'Anthropic Claude', url: 'https://api.anthropic.com/v1', model: 'claude-3-5-haiku-20241022' },
+            '通义千问': { name: '通义千问 (Alibaba)', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-turbo' },
+            'DeepSeek': { name: 'DeepSeek', url: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+            'Gemini': { name: 'Google Gemini', url: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.0-flash' },
+            '自定义': { name: '自定义', url: '', model: '' },
+        };
+
+        let currentStep = 1;
+        let selectedProvider = 'OpenAI';
+
+        function selectProvider(el) {
+            document.querySelectorAll('.provider-card').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+            const name = el.querySelector('.provider-name').textContent.trim();
+            selectedProvider = name;
+            const isCustom = el.dataset.custom === 'true';
+            document.getElementById('customUrlField').style.display = isCustom ? '' : 'none';
+            document.getElementById('customModelField').style.display = isCustom ? '' : 'none';
+        }
+
+        function goStep(n) {
+            if (n === 2) {
+                // Pre-fill from selected provider
+                const cards = document.querySelectorAll('.provider-card.selected');
+                const card = cards[0];
+                const isCustom = card?.dataset.custom === 'true';
+                const url = isCustom ? document.getElementById('customBaseUrl').value : (card?.dataset.url || '');
+                const model = isCustom ? document.getElementById('customModel').value : (card?.dataset.model || '');
+                document.getElementById('cfgBaseUrl').value = url;
+                document.getElementById('cfgModel').value = model;
+                document.getElementById('apiKeyHint').textContent = `请填写你的 ${selectedProvider} API Key`;
+            }
+            if (n === 3) {
+                if (!document.getElementById('cfgApiKey').value.trim()) {
+                    document.getElementById('cfgApiKey').focus();
+                    document.getElementById('cfgApiKey').style.borderColor = 'var(--error)';
+                    setTimeout(() => document.getElementById('cfgApiKey').style.borderColor = '', 2000);
+                    return;
+                }
+                // Populate summary
+                const keyVal = document.getElementById('cfgApiKey').value.trim();
+                document.getElementById('summary-provider').textContent = selectedProvider;
+                document.getElementById('summary-url').textContent = document.getElementById('cfgBaseUrl').value;
+                document.getElementById('summary-model').textContent = document.getElementById('cfgModel').value;
+                document.getElementById('summary-key').textContent = keyVal.slice(0, 4) + '***' + keyVal.slice(-4);
+                document.getElementById('testResultBox').style.display = 'none';
+            }
+            // Update step UI
+            currentStep = n;
+            document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('visible'));
+            document.getElementById('panel-' + n).classList.add('visible');
+            updateStepUI(n);
+        }
+
+        function updateStepUI(current) {
+            for (let i = 1; i <= 4; i++) {
+                const dot = document.getElementById('step' + i + '-dot');
+                const lbl = document.getElementById('step' + i + '-lbl');
+                if (i < current) {
+                    dot.className = 'step-circle done'; dot.textContent = '✓';
+                    lbl.className = 'step-label';
+                } else if (i === current) {
+                    dot.className = 'step-circle active'; dot.textContent = i;
+                    lbl.className = 'step-label active';
+                } else {
+                    dot.className = 'step-circle'; dot.textContent = i;
+                    lbl.className = 'step-label';
+                }
+            }
+            for (let i = 1; i <= 3; i++) {
+                const conn = document.getElementById('conn-' + i + '-' + (i + 1));
+                if (conn) conn.className = 'step-connector' + (current > i ? ' done' : '');
+            }
+        }
+
+        async function runTest() {
+            const btn = document.getElementById('testBtn');
+            const box = document.getElementById('testResultBox');
+            btn.disabled = true; btn.textContent = '测试中...';
+            box.className = 'test-result-box loading'; box.style.display = '';
+            box.textContent = '⏳ 正在发送测试请求，请稍候...';
+
+            // First save config, then test
+            await saveConfig();
+            try {
+                const res = await fetch('/api/config/test-llm', { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    box.className = 'test-result-box success';
+                    box.innerHTML = `✅ 连接成功！<br>模型: ${json.data.model}<br>响应: ${json.data.response}<br>延迟: ${json.data.latency}ms`;
+                } else {
+                    throw new Error(json.error);
+                }
+            } catch (err) {
+                box.className = 'test-result-box error';
+                box.innerHTML = `❌ 连接失败<br>${err.message}`;
+            } finally {
+                btn.disabled = false; btn.textContent = '🧪 重新测试';
+            }
+        }
+
+        async function saveConfig() {
+            const baseUrl = document.getElementById('cfgBaseUrl').value.trim();
+            const provider = (selectedProvider === 'Anthropic Claude' || baseUrl.includes('anthropic')) ? 'anthropic' : 'openai';
+            const body = {
+                'llm.provider': provider,
+                'llm.base_url': baseUrl,
+                'llm.api_key': document.getElementById('cfgApiKey').value.trim(),
+                'llm.model': document.getElementById('cfgModel').value.trim(),
+            };
+            await fetch('/api/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+        }
+
+        async function saveAndFinish() {
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = true; btn.textContent = '保存中...';
+            await saveConfig();
+            btn.disabled = false;
+            goStep(4);
+            // Done connector
+            document.getElementById('conn-3-4').className = 'step-connector done';
+        }
+
+        function goToApp() { window.location.href = '/'; }
+        function toggleKey() {
+            const i = document.getElementById('cfgApiKey');
+            i.type = i.type === 'password' ? 'text' : 'password';
+        }
+
+        // Pre-fill current config if already set
+        (async () => {
+            try {
+                const res = await fetch('/api/config');
+                const j = await res.json();
+                const d = j.data || {};
+                if (d['llm.base_url']) document.getElementById('cfgBaseUrl').value = d['llm.base_url'];
+                if (d['llm.model']) document.getElementById('cfgModel').value = d['llm.model'];
+            } catch { }
+        })();
+    </script>
+</body>
+
+</html>

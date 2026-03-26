@@ -19,15 +19,16 @@ function getLlmConfig() {
     const apiKey = rawKey ? decrypt(rawKey) : null;
     const baseUrl = getConfig('llm.base_url') || 'https://api.openai.com/v1';
     const model = getConfig('llm.model') || 'gpt-4o-mini';
-    return { apiKey, baseUrl, model };
+    const provider = getConfig('llm.provider') || 'openai'; // default to openai
+    return { apiKey, baseUrl, model, provider };
 }
 
 async function chat(messages, { temperature = 0.3, maxTokens = 1000 } = {}) {
-    const { apiKey, baseUrl, model } = getLlmConfig();
+    const { apiKey, baseUrl, model, provider } = getLlmConfig();
     if (!apiKey) throw new Error('LLM API key not configured. Please set it in Settings.');
 
-    // Support Anthropic Standard API format
-    const isAnthropic = baseUrl.includes('anthropic.com') || baseUrl.includes('anthropic');
+    // Support Anthropic Standard API format based on provider setting
+    const isAnthropic = provider === 'anthropic';
 
     if (isAnthropic) {
         const response = await axiosInstance.post(

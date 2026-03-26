@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,9 +8,12 @@
   <title>InfoMind - 知识书架</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
 </head>
+
 <body>
   <!-- Navigation -->
   <nav class="navbar">
@@ -112,6 +116,14 @@
         <section class="settings-section">
           <h3>🤖 大模型配置</h3>
           <label>
+            <span>接口标准</span>
+            <select id="cfgProvider"
+              style="width:100%; padding:9px 12px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-primary); font-size:0.875rem; font-family:var(--font-sans); outline:none; transition:border-color var(--transition);">
+              <option value="openai">OpenAI 兼容标准</option>
+              <option value="anthropic">Anthropic 标准</option>
+            </select>
+          </label>
+          <label>
             <span>API Base URL</span>
             <input type="url" id="cfgBaseUrl" placeholder="https://api.openai.com/v1" />
           </label>
@@ -160,4 +172,5 @@
   <script src="/js/settings.js"></script>
   <script src="/js/app.js"></script>
 </body>
+
 </html>

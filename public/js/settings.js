@@ -16,6 +16,7 @@ async function openSettings() {
     try {
         const res = await api.getConfig();
         const cfg = res.data;
+        document.getElementById('cfgProvider').value = cfg['llm.provider'] || 'openai';
         document.getElementById('cfgBaseUrl').value = cfg['llm.base_url'] || '';
         document.getElementById('cfgApiKey').value = ''; // never prefill key for security
         document.getElementById('cfgModel').value = cfg['llm.model'] || '';
@@ -47,10 +48,12 @@ async function saveSettings() {
     btn.disabled = true; btn.textContent = '保存中...';
 
     const updates = {};
+    const provider = document.getElementById('cfgProvider').value;
     const baseUrl = document.getElementById('cfgBaseUrl').value.trim();
     const apiKey = document.getElementById('cfgApiKey').value.trim();
     const model = document.getElementById('cfgModel').value.trim();
 
+    if (provider) updates['llm.provider'] = provider;
     if (baseUrl) updates['llm.base_url'] = baseUrl;
     if (apiKey) updates['llm.api_key'] = apiKey;
     if (model) updates['llm.model'] = model;
