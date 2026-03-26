@@ -1,0 +1,257 @@
+// server/db/queries.js
+const { v4: uuidv4 } = require('uuid');
+const { getDb } = require('./init');
+
+// ─── Entries ──────────────────────────────────────────────────────────────────
+
+function createEntry(data) {
+    const db = getDb();
+    const id = data.id || uuidv4();
+    db.prepare(`
+    INSERT INTO entries (id, url, platform, title, author, author_id, cover_url, cover_local,
+                         summary, note, category, sub_category, tags, book_id, source_data)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+        id, data.url, data.platform || 'unknown',
+        data.title || null, data.author || null, data.author_id || null,
+        data.cover_url || null, data.cover_local || null,
+        data.summary || null, data.note || null,
+        data.category || '其他', data.sub_category || null,
+        JSON.stringify(data.tags || []), data.book_id || null,
+        JSON.stringify(data.source_data || {})
+    );
+    return getEntryById(id);
+}
+
+function getEntryById(id) {
+    const db = getDb();
+    const row = db.prepare('SELECT * FROM entries WHERE id = ?').get(id);
+    return row ? parseEntry(row) : null;
+}
+
+function getEntryByUrl(url) {
+    const db = getDb();
+    const row = db.prepare('SELECT * FROM entries WHERE url = ?').get(url);
+    return row ? parseEntry(row) : null;
+}
+
+function listEntries({ category, platform, sort = 'created_at', page = 1, limit = 50 } = {}) {
+    const db = getDb();
+    const conditions = [];
+    const params = [];
+
+    if (category) { conditions.push('e.category = ?'); params.push(category); }
+    if (platform) { conditions.push('e.platform = ?'); params.push(platform); }
+
+    const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+    const sortCol = sort === 'title' ? 'e.title' : 'e.created_at';
+    const offset = (page - 1) * limit;
+
+    const rows = db.prepare(`
+    SELECT e.* FROM entries e ${where}
+    ORDER BY ${sortCol} DESC
+    LIMIT ? OFFSET ?
+  `).all(...params, limit, offset);
+
+    const total = db.prepare(`SELECT COUNT(*) as c FROM entries e ${where}`).get(...params).c;
+    return { entries: rows.map(parseEntry), total, page, limit };
+}
+
+function searchEntries(q, { limit = 50 } = {}) {
+    const db = getDb();
+    const term = `%${q}%`;
+    const rows = db.prepare(`
+    SELECT * FROM entries
+    WHERE title LIKE ? OR summary LIKE ? OR author LIKE ? OR tags LIKE ? OR note LIKE ?
+    ORDER BY created_at DESC
+    LIMIT ?
+  `).all(term, term, term, term, term, limit);
+    return rows.map(parseEntry);
+}
+
+function updateEntry(id, data) {
+    const db = getDb();
+    const fields = [];
+    const params = [];
+
+    if (data.category !== undefined) { fields.push('category = ?'); params.push(data.category); }
+    if (data.sub_category !== undefined) { fields.push('sub_category = ?'); params.push(data.sub_category); }
+    if (data.tags !== undefined) { fields.push('tags = ?'); params.push(JSON.stringify(data.tags)); }
+    if (data.note !== undefined) { fields.push('note = ?'); params.push(data.note); }
+    if (data.book_id !== undefined) { fields.push('book_id = ?'); params.push(data.book_id); }
+    if (data.summary !== undefined) { fields.push('summary = ?'); params.push(data.summary); }
+    if (data.title !== undefined) { fields.push('title = ?'); params.push(data.title); }
+
+    if (!fields.length) return getEntryById(id);
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    params.push(id);
+
+    db.prepare(`UPDATE entries SET ${fields.join(', ')} WHERE id = ?`).run(...params);
+    return getEntryById(id);
+}
+
+function deleteEntry(id) {
+    const db = getDb();
+    const entry = getEntryById(id);
+    if (!entry) return false;
+    db.prepare('DELETE FROM entries WHERE id = ?').run(id);
+    // Update book count
+    if (entry.book_id) {
+        updateBookCount(entry.book_id);
+    }
+    return true;
+}
+
+function parseEntry(row) {
+    return {
+        ...row,
+        tags: safeJsonParse(row.tags, []),
+        source_data: safeJsonParse(row.source_data, {}),
+    };
+}
+
+// ─── Books ────────────────────────────────────────────────────────────────────
+
+function findBook({ author_id, author, platform }) {
+    const db = getDb();
+    if (author_id) {
+        return db.prepare('SELECT * FROM books WHERE author_id = ? AND platform = ?').get(author_id, platform);
+    }
+    if (author) {
+        return db.prepare('SELECT * FROM books WHERE author = ? AND platform = ?').get(author, platform);
+    }
+    return null;
+}
+
+function createBook(data) {
+    const db = getDb();
+    const id = data.id || uuidv4();
+    db.prepare(`
+    INSERT INTO books (id, author, author_id, platform, category, title, cover_url, cover_local)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, data.author, data.author_id || null, data.platform, data.category,
+        data.title || null, data.cover_url || null, data.cover_local || null);
+    return db.prepare('SELECT * FROM books WHERE id = ?').get(id);
+}
+
+function updateBook(id, data) {
+    const db = getDb();
+    const fields = [];
+    const params = [];
+    if (data.title !== undefined) { fields.push('title = ?'); params.push(data.title); }
+    if (data.cover_url !== undefined) { fields.push('cover_url = ?'); params.push(data.cover_url); }
+    if (data.entry_count !== undefined) { fields.push('entry_count = ?'); params.push(data.entry_count); }
+    if (data.category !== undefined) { fields.push('category = ?'); params.push(data.category); }
+
+    if (!fields.length) return;
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    params.push(id);
+    db.prepare(`UPDATE books SET ${fields.join(', ')} WHERE id = ?`).run(...params);
+}
+
+function updateBookCount(bookId) {
+    const db = getDb();
+    const count = db.prepare('SELECT COUNT(*) as c FROM entries WHERE book_id = ?').get(bookId).c;
+    if (count === 0) {
+        db.prepare('DELETE FROM books WHERE id = ?').run(bookId);
+    } else {
+        db.prepare('UPDATE books SET entry_count = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(count, bookId);
+    }
+}
+
+function listBooks({ category, platform, sort = 'updated_at', page = 1, limit = 100 } = {}) {
+    const db = getDb();
+    const conditions = [];
+    const params = [];
+    if (category) { conditions.push('category = ?'); params.push(category); }
+    if (platform) { conditions.push('platform = ?'); params.push(platform); }
+    const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+    const offset = (page - 1) * limit;
+    const rows = db.prepare(`
+    SELECT * FROM books ${where}
+    ORDER BY updated_at DESC
+    LIMIT ? OFFSET ?
+  `).all(...params, limit, offset);
+    const total = db.prepare(`SELECT COUNT(*) as c FROM books ${where}`).get(...params).c;
+    return { books: rows, total, page, limit };
+}
+
+function getBookById(id) {
+    const db = getDb();
+    return db.prepare('SELECT * FROM books WHERE id = ?').get(id);
+}
+
+function getBookEntries(bookId) {
+    const db = getDb();
+    const rows = db.prepare('SELECT * FROM entries WHERE book_id = ? ORDER BY created_at DESC').all(bookId);
+    return rows.map(parseEntry);
+}
+
+// ─── Categories ───────────────────────────────────────────────────────────────
+
+function listCategories() {
+    const db = getDb();
+    return db.prepare(`
+    SELECT c.*, COUNT(e.id) as entry_count
+    FROM categories c
+    LEFT JOIN entries e ON e.category = c.name
+    GROUP BY c.id
+    ORDER BY c.sort_order
+  `).all();
+}
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+
+function getConfig(key) {
+    const db = getDb();
+    const row = db.prepare('SELECT value FROM config WHERE key = ?').get(key);
+    return row ? row.value : null;
+}
+
+function setConfig(key, value) {
+    const db = getDb();
+    db.prepare(`
+    INSERT INTO config (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+  `).run(key, value);
+}
+
+function getAllConfig() {
+    const db = getDb();
+    const rows = db.prepare('SELECT key, value FROM config').all();
+    const result = {};
+    for (const r of rows) result[r.key] = r.value;
+    return result;
+}
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+
+function getStats() {
+    const db = getDb();
+    return {
+        total_entries: db.prepare('SELECT COUNT(*) as c FROM entries').get().c,
+        total_books: db.prepare('SELECT COUNT(*) as c FROM books').get().c,
+        total_categories_used: db.prepare('SELECT COUNT(DISTINCT category) as c FROM entries').get().c,
+        by_platform: db.prepare(
+            "SELECT platform, COUNT(*) as count FROM entries GROUP BY platform ORDER BY count DESC"
+        ).all(),
+        by_category: db.prepare(
+            "SELECT category, COUNT(*) as count FROM entries GROUP BY category ORDER BY count DESC"
+        ).all(),
+        recent: db.prepare('SELECT id, title, platform, created_at FROM entries ORDER BY created_at DESC LIMIT 5').all(),
+    };
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function safeJsonParse(str, fallback) {
+    try { return JSON.parse(str); } catch { return fallback; }
+}
+
+module.exports = {
+    createEntry, getEntryById, getEntryByUrl, listEntries, searchEntries, updateEntry, deleteEntry,
+    findBook, createBook, updateBook, updateBookCount, listBooks, getBookById, getBookEntries,
+    listCategories,
+    getConfig, setConfig, getAllConfig,
+    getStats,
+};
