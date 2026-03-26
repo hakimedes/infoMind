@@ -36,7 +36,7 @@
 ## ✅ Phase 3 — LLM 智能服务
 **完成时间**: 2026-03-26  
 **GitHub commit**: `feat: Phase 1-3 - backend foundation, parsers & LLM services`
-- `llm.js`: OpenAI Compatible API 调用封装
+- `llm.js`: OpenAI Compatible & Anthropic Standard API 调用封装
 - `classifier.js`: LLM 分类 + 关键词降级
 - `bookmaker.js`: 同作者归并 + AI 书名生成
 

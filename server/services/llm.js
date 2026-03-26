@@ -26,8 +26,28 @@ async function chat(messages, { temperature = 0.3, maxTokens = 1000 } = {}) {
     const { apiKey, baseUrl, model } = getLlmConfig();
     if (!apiKey) throw new Error('LLM API key not configured. Please set it in Settings.');
 
+    // Support Anthropic Standard API format
+    const isAnthropic = baseUrl.includes('anthropic.com') || baseUrl.includes('anthropic');
+
+    if (isAnthropic) {
+        const response = await axiosInstance.post(
+            `${baseUrl.replace(/\/$/, '')}/messages`,
+            { model, messages, temperature, max_tokens: maxTokens },
+            {
+                headers: {
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01',
+                    'Content-Type': 'application/json',
+                },
+                timeout: 30000,
+            }
+        );
+        return response.data.content[0]?.text || '';
+    }
+
+    // Default to OpenAI Compatible API format
     const response = await axiosInstance.post(
-        `${baseUrl}/chat/completions`,
+        `${baseUrl.replace(/\/$/, '')}/chat/completions`,
         { model, messages, temperature, max_tokens: maxTokens },
         {
             headers: {
