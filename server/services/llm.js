@@ -1,8 +1,11 @@
 // server/services/llm.js - LLM service (OpenAI Compatible API)
 const axios = require('axios');
+// Force http adapter for Node.js 18 compatibility (avoid undici/fetch issues)
+const axiosInstance = axios.create({ adapter: 'http' });
 const { getConfig } = require('../db/queries');
 const { decrypt } = require('../utils/crypto');
 const logger = require('../utils/logger');
+
 
 const CATEGORIES = [
     '人工智能', '计算机科学', '心理学', '哲学', '历史', '自然科学', '数学',
@@ -23,7 +26,7 @@ async function chat(messages, { temperature = 0.3, maxTokens = 1000 } = {}) {
     const { apiKey, baseUrl, model } = getLlmConfig();
     if (!apiKey) throw new Error('LLM API key not configured. Please set it in Settings.');
 
-    const response = await axios.post(
+    const response = await axiosInstance.post(
         `${baseUrl}/chat/completions`,
         { model, messages, temperature, max_tokens: maxTokens },
         {
