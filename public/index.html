@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="InfoMind - 个人知识管理系统，以书架形式展示你收藏的网络内容" />
+  <title>InfoMind - 知识书架</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span class="brand-icon">🧠</span>
+      <span class="brand-text">InfoMind</span>
+    </div>
+    <div class="nav-center">
+      <div class="search-box" id="searchBox">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="搜索标题、作者、标签..." autocomplete="off" />
+        <kbd class="search-shortcut">⌘K</kbd>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <button class="btn-icon" id="addBtn" title="添加链接">
+        <span>＋</span>
+      </button>
+      <button class="btn-icon" id="settingsBtn" title="设置">
+        <span>⚙️</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Quick Add Bar -->
+  <div class="quick-add-bar" id="quickAddBar" style="display:none">
+    <div class="quick-add-inner">
+      <div class="quick-add-icon">🔗</div>
+      <input type="url" id="urlInput" placeholder="粘贴链接，支持 YouTube、Bilibili、Twitter、小红书、知乎..." />
+      <input type="text" id="noteInput" placeholder="添加备注（可选）" />
+      <button class="btn-primary" id="addSubmitBtn">收录</button>
+      <button class="btn-ghost" id="addCancelBtn">取消</button>
+    </div>
+    <div class="quick-add-status" id="addStatus"></div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <div class="filter-categories" id="filterCategories">
+      <button class="filter-pill active" data-category="">全部</button>
+      <!-- populated by JS -->
+    </div>
+    <div class="filter-controls">
+      <div class="view-toggle">
+        <button class="view-btn active" id="viewShelf" title="书架视图">⊞</button>
+        <button class="view-btn" id="viewTimeline" title="时间线视图">☰</button>
+      </div>
+      <select class="sort-select" id="sortSelect">
+        <option value="created_at">最新优先</option>
+        <option value="title">按标题</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="main-content" id="mainContent">
+    <div class="loading-screen" id="loadingScreen">
+      <div class="spinner"></div>
+      <p>加载书架中...</p>
+    </div>
+    <div class="empty-state" id="emptyState" style="display:none">
+      <div class="empty-icon">📚</div>
+      <h2>书架还是空的</h2>
+      <p>添加你的第一个链接，开始构建知识库吧</p>
+      <button class="btn-primary" onclick="document.getElementById('addBtn').click()">＋ 添加链接</button>
+    </div>
+    <!-- Bookshelf view -->
+    <div class="bookshelf-container" id="bookshelfContainer"></div>
+    <!-- Timeline view -->
+    <div class="timeline-container" id="timelineContainer" style="display:none"></div>
+    <!-- Search results -->
+    <div class="search-results" id="searchResults" style="display:none"></div>
+  </main>
+
+  <!-- Stats Bar -->
+  <div class="stats-bar" id="statsBar">
+    <span id="statTotal">0 条内容</span>
+    <span>·</span>
+    <span id="statCategories">0 个分类</span>
+    <span>·</span>
+    <span id="statPlatforms">多平台</span>
+  </div>
+
+  <!-- Book Detail Modal -->
+  <div class="modal-overlay" id="modalOverlay" style="display:none">
+    <div class="modal-card" id="modalCard">
+      <button class="modal-close" id="modalClose">✕</button>
+      <div class="modal-content" id="modalContent"></div>
+    </div>
+  </div>
+
+  <!-- Settings Panel -->
+  <div class="settings-overlay" id="settingsOverlay" style="display:none">
+    <div class="settings-panel" id="settingsPanel">
+      <div class="settings-header">
+        <h2>⚙️ 系统设置</h2>
+        <button class="modal-close" id="settingsClose">✕</button>
+      </div>
+      <div class="settings-content">
+        <section class="settings-section">
+          <h3>🤖 大模型配置</h3>
+          <label>
+            <span>API Base URL</span>
+            <input type="url" id="cfgBaseUrl" placeholder="https://api.openai.com/v1" />
+          </label>
+          <label>
+            <span>API Key</span>
+            <div class="input-with-toggle">
+              <input type="password" id="cfgApiKey" placeholder="sk-..." />
+              <button class="toggle-visibility" onclick="toggleApiKeyVisibility()" title="显示/隐藏">👁️</button>
+            </div>
+          </label>
+          <label>
+            <span>模型名称</span>
+            <input type="text" id="cfgModel" placeholder="gpt-4o-mini" />
+          </label>
+          <div class="settings-actions">
+            <button class="btn-secondary" id="testLlmBtn">🧪 测试连接</button>
+            <span class="test-result" id="testResult"></span>
+          </div>
+        </section>
+        <section class="settings-section">
+          <h3>🔌 OpenClaw 集成</h3>
+          <div class="info-box">
+            <p><strong>Webhook URL：</strong></p>
+            <code id="webhookUrl">http://localhost:3456/api/webhook/openclaw</code>
+            <button class="copy-btn" onclick="copyWebhookUrl()">复制</button>
+          </div>
+          <p class="hint">将此 URL 配置到 OpenClaw，即可通过 Agent 转发链接到 InfoMind。</p>
+        </section>
+        <section class="settings-section">
+          <h3>📊 数据统计</h3>
+          <div class="stats-grid" id="settingsStats"></div>
+        </section>
+      </div>
+      <div class="settings-footer">
+        <button class="btn-primary" id="saveSettingsBtn">💾 保存设置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/bookshelf.js"></script>
+  <script src="/js/modal.js"></script>
+  <script src="/js/settings.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
