@@ -15,6 +15,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Static files (Web UI)
 app.use(express.static(path.join(__dirname, '../public')));
+app.use('/covers', express.static(path.join(__dirname, '../data/covers')));
 
 // API Routes
 app.use('/api/entries', require('./routes/entries'));
@@ -23,16 +24,7 @@ app.use('/api/categories', require('./routes/categories'));
 app.use('/api/config', require('./routes/config'));
 app.use('/api/webhook', require('./routes/webhook'));
 
-// Stats
-app.get('/api/stats', (req, res) => {
-    try {
-        const { getStats } = require('./db/queries');
-        res.json({ success: true, data: getStats() });
-    } catch (err) {
-        logger.error('Stats error', err);
-        res.status(500).json({ success: false, error: err.message });
-    }
-});
+app.use('/api/stats', require('./routes/stats'));
 
 // Health check
 app.get('/api/health', (req, res) => {

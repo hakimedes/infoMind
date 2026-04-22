@@ -20,6 +20,7 @@ async function processBook(entryData) {
             category,
             title: author ? `${author} 的内容` : '未知作者的内容',
             cover_url: entryData.cover_url || null,
+            cover_local: entryData.cover_local || null,
         });
         logger.info(`Created new book: "${book.title}" for author "${author}"`);
     } else {
@@ -43,6 +44,9 @@ async function processBook(entryData) {
         // Use first entry's cover if book has none
         if (!book.cover_url && entryData.cover_url) {
             updates.cover_url = entryData.cover_url;
+        }
+        if (!book.cover_local && entryData.cover_local) {
+            updates.cover_local = entryData.cover_local;
         }
 
         queries.updateBook(book.id, updates);

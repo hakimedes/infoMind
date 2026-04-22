@@ -1,176 +1,431 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-
+<html class="light" lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="InfoMind - 个人知识管理系统，以书架形式展示你收藏的网络内容" />
-  <title>InfoMind - 知识书架</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap"
-    rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css" />
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>InfoMind - 知识书架</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Manrope:wght@200..800&family=Inter:wght@100..900&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+tailwind.config = {
+    darkMode: "class",
+    theme: {
+        extend: {
+            colors: {
+                "background": "#fcf9ef", "error": "#ba1a1a", "error-container": "#ffdad6",
+                "inverse-on-surface": "#f4f1e7", "inverse-primary": "#e4c375", "inverse-surface": "#31312a",
+                "on-background": "#1c1c16", "on-error": "#ffffff", "on-error-container": "#93000a",
+                "on-primary": "#ffffff", "on-primary-container": "#fffbff", "on-primary-fixed": "#251a00",
+                "on-primary-fixed-variant": "#5a4300", "on-secondary": "#ffffff", "on-secondary-container": "#4a6e39",
+                "on-secondary-fixed": "#062100", "on-secondary-fixed-variant": "#2d4f1e", "on-surface": "#1c1c16",
+                "on-surface-variant": "#4d4639", "on-tertiary": "#ffffff", "on-tertiary-container": "#fefcff",
+                "on-tertiary-fixed": "#101b30", "on-tertiary-fixed-variant": "#3c475d", "outline": "#7e7667",
+                "outline-variant": "#d0c5b4", "primary": "#715915", "primary-container": "#8c712d",
+                "primary-fixed": "#ffdf97", "primary-fixed-dim": "#e4c375", "secondary": "#446733",
+                "secondary-container": "#c5efad", "secondary-fixed": "#c5efad", "secondary-fixed-dim": "#a9d293",
+                "surface": "#fcf9ef", "surface-bright": "#fcf9ef", "surface-container": "#f1eee4",
+                "surface-container-high": "#ebe8de", "surface-container-highest": "#e5e2d9",
+                "surface-container-low": "#f7f4e9", "surface-container-lowest": "#ffffff",
+                "surface-dim": "#dddad0", "surface-tint": "#745b18", "surface-variant": "#e5e2d9",
+                "tertiary": "#515c74", "tertiary-container": "#6a758d", "tertiary-fixed": "#d7e2ff",
+                "tertiary-fixed-dim": "#bbc6e2"
+            },
+            fontFamily: {
+                "headline": ["Newsreader", "serif"],
+                "body": ["Manrope", "sans-serif"],
+                "label": ["Inter", "sans-serif"]
+            }
+        }
+    }
+}
+</script>
+<style>
+    body { font-family: 'Manrope', sans-serif; background-color: #fcf9ef; color: #1c1c16; }
+    h1, h2, h3, h4, h5, h6, .font-headline { font-family: 'Newsreader', serif; }
+    .font-label { font-family: 'Inter', sans-serif; }
+
+    /* ── Animation keyframes ──────────────────────────────────────── */
+    /* Book card stagger entrance */
+    @keyframes bookFadeIn {
+        from { opacity: 0; transform: translateY(16px) scale(0.97); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .shelf-row > * {
+        animation: bookFadeIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    /* Toast spring-in / out */
+    @keyframes toastSpringIn {
+        0%   { transform: translateX(100%) scale(0.95); opacity: 0; }
+        60%  { transform: translateX(-4px) scale(1.01); opacity: 1; }
+        100% { transform: translateX(0) scale(1); opacity: 1; }
+    }
+    @keyframes toastOut {
+        from { transform: translateX(0); opacity: 1; }
+        to   { transform: translateX(100%); opacity: 0; }
+    }
+
+    /* ── Interactive feedback ─────────────────────────────────────── */
+    /* Button press – Apple-like spring squash */
+    button { transition: transform 0.12s cubic-bezier(0.22, 1, 0.36, 1); }
+    button:active { transform: scale(0.96); }
+
+    /* Nav link press */
+    #viewShelf:active, #viewTimeline:active, #viewDashboard:active {
+        transform: scale(0.97) !important;
+        transition: transform 0.08s ease !important;
+    }
+
+    /* Filter pill click spring */
+    .filter-pill { transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s ease, color 0.2s ease; }
+    .filter-pill:active { transform: scale(0.94); }
+
+    /* ── Toast container ──────────────────────────────────────────── */
+    .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+    .toast { padding: 12px 20px; border-radius: 10px; font-size: 14px; background: #fff; box-shadow: 0 8px 32px rgba(0,0,0,0.12); display: flex; align-items: center; gap: 8px; animation: toastSpringIn 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+    .toast.success { border-left: 4px solid #446733; }
+    .toast.error { border-left: 4px solid #ba1a1a; }
+    .toast.info { border-left: 4px solid #715915; }
+
+    /* ── Scrollbar ─────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d0c5b4; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #7e7667; }
+</style>
 </head>
-
-<body>
-  <!-- Navigation -->
-  <nav class="navbar">
-    <div class="nav-brand">
-      <span class="brand-icon">🧠</span>
-      <span class="brand-text">InfoMind</span>
-    </div>
-    <div class="nav-center">
-      <div class="search-box" id="searchBox">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="searchInput" placeholder="搜索标题、作者、标签..." autocomplete="off" />
-        <kbd class="search-shortcut">⌘K</kbd>
-      </div>
-    </div>
-    <div class="nav-actions">
-      <button class="btn-icon" id="addBtn" title="添加链接">
-        <span>＋</span>
-      </button>
-      <button class="btn-icon" id="settingsBtn" title="设置">
-        <span>⚙️</span>
-      </button>
-    </div>
-  </nav>
-
-  <!-- Quick Add Bar -->
-  <div class="quick-add-bar" id="quickAddBar" style="display:none">
-    <div class="quick-add-inner">
-      <div class="quick-add-icon">🔗</div>
-      <input type="url" id="urlInput" placeholder="粘贴链接，支持 YouTube、Bilibili、Twitter、小红书、知乎..." />
-      <input type="text" id="noteInput" placeholder="添加备注（可选）" />
-      <button class="btn-primary" id="addSubmitBtn">收录</button>
-      <button class="btn-ghost" id="addCancelBtn">取消</button>
-    </div>
-    <div class="quick-add-status" id="addStatus"></div>
-  </div>
-
-  <!-- Filter Bar -->
-  <div class="filter-bar">
-    <div class="filter-categories" id="filterCategories">
-      <button class="filter-pill active" data-category="">全部</button>
-      <!-- populated by JS -->
-    </div>
-    <div class="filter-controls">
-      <div class="view-toggle">
-        <button class="view-btn active" id="viewShelf" title="书架视图">⊞</button>
-        <button class="view-btn" id="viewTimeline" title="时间线视图">☰</button>
-      </div>
-      <select class="sort-select" id="sortSelect">
-        <option value="created_at">最新优先</option>
-        <option value="title">按标题</option>
-      </select>
-    </div>
-  </div>
-
-  <!-- Main Content -->
-  <main class="main-content" id="mainContent">
-    <div class="loading-screen" id="loadingScreen">
-      <div class="spinner"></div>
-      <p>加载书架中...</p>
-    </div>
-    <div class="empty-state" id="emptyState" style="display:none">
-      <div class="empty-icon">📚</div>
-      <h2>书架还是空的</h2>
-      <p>添加你的第一个链接，开始构建知识库吧</p>
-      <button class="btn-primary" onclick="document.getElementById('addBtn').click()">＋ 添加链接</button>
-    </div>
-    <!-- Bookshelf view -->
-    <div class="bookshelf-container" id="bookshelfContainer"></div>
-    <!-- Timeline view -->
-    <div class="timeline-container" id="timelineContainer" style="display:none"></div>
-    <!-- Search results -->
-    <div class="search-results" id="searchResults" style="display:none"></div>
-  </main>
-
-  <!-- Stats Bar -->
-  <div class="stats-bar" id="statsBar">
-    <span id="statTotal">0 条内容</span>
-    <span>·</span>
-    <span id="statCategories">0 个分类</span>
-    <span>·</span>
-    <span id="statPlatforms">多平台</span>
-  </div>
-
-  <!-- Book Detail Modal -->
-  <div class="modal-overlay" id="modalOverlay" style="display:none">
-    <div class="modal-card" id="modalCard">
-      <button class="modal-close" id="modalClose">✕</button>
-      <div class="modal-content" id="modalContent"></div>
-    </div>
-  </div>
-
-  <!-- Settings Panel -->
-  <div class="settings-overlay" id="settingsOverlay" style="display:none">
-    <div class="settings-panel" id="settingsPanel">
-      <div class="settings-header">
-        <h2>⚙️ 系统设置</h2>
-        <button class="modal-close" id="settingsClose">✕</button>
-      </div>
-      <div class="settings-content">
-        <section class="settings-section">
-          <h3>🤖 大模型配置</h3>
-          <label>
-            <span>接口标准</span>
-            <select id="cfgProvider"
-              style="width:100%; padding:9px 12px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-primary); font-size:0.875rem; font-family:var(--font-sans); outline:none; transition:border-color var(--transition);">
-              <option value="openai">OpenAI 兼容标准</option>
-              <option value="anthropic">Anthropic 标准</option>
-            </select>
-          </label>
-          <label>
-            <span>API Base URL</span>
-            <input type="url" id="cfgBaseUrl" placeholder="https://api.openai.com/v1" />
-          </label>
-          <label>
-            <span>API Key</span>
-            <div class="input-with-toggle">
-              <input type="password" id="cfgApiKey" placeholder="sk-..." />
-              <button class="toggle-visibility" onclick="toggleApiKeyVisibility()" title="显示/隐藏">👁️</button>
+<body class="bg-background text-on-surface antialiased flex h-screen overflow-hidden">
+<!-- SideNavBar -->
+<aside class="h-screen w-72 flex flex-col bg-surface-container-low hidden md:flex z-40 fixed left-0 top-0">
+    <div class="p-6 space-y-8 flex flex-col h-full">
+        <div class="flex items-center space-x-3 mb-8">
+            <div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden">
+                <span class="material-symbols-outlined text-primary">psychology</span>
             </div>
-          </label>
-          <label>
-            <span>模型名称</span>
-            <input type="text" id="cfgModel" placeholder="gpt-4o-mini" />
-          </label>
-          <div class="settings-actions">
-            <button class="btn-secondary" id="testLlmBtn">🧪 测试连接</button>
-            <span class="test-result" id="testResult"></span>
-          </div>
-        </section>
-        <section class="settings-section">
-          <h3>🔌 OpenClaw 集成</h3>
-          <div class="info-box">
-            <p><strong>Webhook URL：</strong></p>
-            <code id="webhookUrl">http://localhost:3456/api/webhook/openclaw</code>
-            <button class="copy-btn" onclick="copyWebhookUrl()">复制</button>
-          </div>
-          <p class="hint">将此 URL 配置到 OpenClaw，即可通过 Agent 转发链接到 InfoMind。</p>
-        </section>
-        <section class="settings-section">
-          <h3>📊 数据统计</h3>
-          <div class="stats-grid" id="settingsStats"></div>
-        </section>
-      </div>
-      <div class="settings-footer">
-        <button class="btn-primary" id="saveSettingsBtn">💾 保存设置</button>
-      </div>
+            <div>
+                <h2 class="font-headline font-bold text-lg text-on-surface">Library</h2>
+                <p class="font-label text-xs text-on-surface/60">Your Intellectual Study</p>
+            </div>
+        </div>
+        <nav class="flex-1 space-y-2">
+            <a id="viewShelf" class="flex items-center space-x-3 px-4 py-3 bg-surface-container-lowest text-primary rounded-lg font-['Manrope'] text-sm tracking-wide uppercase font-semibold ease-out duration-300 cursor-pointer shadow-[0_4px_32px_rgba(28,28,22,0.04)]">
+                <span class="material-symbols-outlined">auto_stories</span>
+                <span>Bookshelf</span>
+            </a>
+            <a id="viewTimeline" class="flex items-center space-x-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:translate-x-1 transition-transform font-['Manrope'] text-sm tracking-wide uppercase font-semibold hover:bg-surface-container-highest rounded-lg ease-out duration-300 cursor-pointer">
+                <span class="material-symbols-outlined">timeline</span>
+                <span>Timeline</span>
+            </a>
+            <a id="viewDashboard" class="flex items-center space-x-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:translate-x-1 transition-transform font-['Manrope'] text-sm tracking-wide uppercase font-semibold hover:bg-surface-container-highest rounded-lg ease-out duration-300 cursor-pointer">
+                <span class="material-symbols-outlined">insights</span>
+                <span>Dashboard</span>
+            </a>
+        </nav>
+        <div class="mt-auto">
+            <button id="addBtn" class="w-full py-3 px-4 bg-gradient-to-r from-primary to-primary-container text-on-primary rounded-md font-body font-medium shadow-[0_12px_32px_rgba(28,28,22,0.06)] hover:opacity-90 transition-opacity flex justify-center items-center space-x-2">
+                <span class="material-symbols-outlined text-sm">add</span>
+                <span>Capture Thought</span>
+            </button>
+        </div>
     </div>
-  </div>
+</aside>
 
-  <!-- Toast Notifications -->
-  <div class="toast-container" id="toastContainer"></div>
+<!-- Main Content Area -->
+<main class="flex-1 md:ml-72 flex flex-col h-screen overflow-y-auto bg-surface" id="mainContent">
+    <!-- TopNavBar -->
+    <header class="w-full sticky top-0 z-30 bg-surface/80 backdrop-blur-[16px] transition-colors duration-300">
+        <div class="flex justify-between items-center px-8 py-4 max-w-screen-2xl mx-auto">
+            <div class="font-['Newsreader'] italic text-2xl text-on-surface">InfoMind</div>
+            <div class="flex items-center space-x-4">
+                <div class="relative hidden sm:block">
+                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/50 text-sm">search</span>
+                    <input id="searchInput" class="pl-9 pr-4 py-2 bg-surface-container-high border-b border-primary focus:border-primary-container focus:bg-surface-container border-b-[1.5px] border-x-0 border-t-0 outline-none rounded-t-sm font-body text-sm text-on-surface w-64 transition-all placeholder:text-on-surface/40" placeholder="Search library..." type="text" autocomplete="off" />
+                </div>
+                <!-- Categories filter embedded as a select for simplicity in new UI -->
+                <select id="sortSelect" class="bg-surface-container-high border-b border-primary border-b-[1.5px] border-x-0 border-t-0 focus:border-primary-container text-on-surface text-sm rounded-t-sm py-2 px-3 outline-none">
+                    <option value="created_at">最新优先</option>
+                    <option value="title">按标题</option>
+                </select>
+                <select id="categorySelect" class="bg-surface-container-high border-b border-primary border-b-[1.5px] border-x-0 border-t-0 text-on-surface text-sm rounded-t-sm py-2 px-3 outline-none hidden">
+                    <option value="">全部分类</option>
+                </select>
+                <button id="settingsBtn" class="p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-md transition-all duration-200">
+                    <span class="material-symbols-outlined">settings</span>
+                </button>
+            </div>
+        </div>
+        <!-- Quick Add Bar -->
+        <div id="quickAddBar" class="bg-surface-container-low border-b border-outline-variant/20 px-8 py-4 flex gap-4 hidden">
+            <input type="url" id="urlInput" placeholder="Paste URL..." class="flex-1 bg-surface border-b border-outline-variant/20 px-3 py-2 text-sm outline-none" />
+            <input type="text" id="noteInput" placeholder="Note (optional)" class="flex-1 bg-surface border-b border-outline-variant/20 px-3 py-2 text-sm outline-none" />
+            <button id="addSubmitBtn" class="bg-primary text-on-primary px-4 py-2 rounded text-sm hover:opacity-90">Save</button>
+            <button id="addCancelBtn" class="text-on-surface-variant hover:text-on-surface px-4 py-2 text-sm">Cancel</button>
+        </div>
+        <div id="addStatus" class="px-8 py-2 text-sm text-on-surface-variant hidden"></div>
+    </header>
 
-  <script src="/js/api.js"></script>
-  <script src="/js/bookshelf.js"></script>
-  <script src="/js/modal.js"></script>
-  <script src="/js/settings.js"></script>
-  <script src="/js/app.js"></script>
+    <!-- Filter Categories (Horizontal list) -->
+    <div class="px-8 pt-4 pb-0 max-w-screen-2xl mx-auto w-full flex gap-2 overflow-x-auto" id="filterCategories">
+        <!-- populated dynamically -->
+    </div>
+
+    <!-- Loading Stage -->
+    <div id="loadingScreen" class="flex-1 flex flex-col items-center justify-center opacity-70">
+        <span class="material-symbols-outlined text-4xl animate-spin mb-4 text-primary">autorenew</span>
+        <p class="font-body text-on-surface-variant">Gathering thoughts...</p>
+    </div>
+
+    <!-- Empty Stage -->
+    <div id="emptyState" class="flex-1 flex flex-col items-center justify-center opacity-70 hidden">
+        <span class="material-symbols-outlined text-6xl mb-4 text-primary opacity-50">auto_stories</span>
+        <h2 class="font-headline text-2xl text-on-surface mb-2">Shelf is Empty</h2>
+        <p class="font-body text-on-surface-variant mb-6">Start curating your knowledge collection.</p>
+    </div>
+
+    <!-- Bookshelf View -->
+    <div id="bookshelfContainer" class="px-8 py-8 max-w-screen-2xl mx-auto w-full flex-1">
+        <div class="mb-12 max-w-3xl">
+            <h1 class="font-headline text-5xl font-normal leading-tight text-on-surface mb-4">Bookshelf</h1>
+            <p class="font-body text-lg text-on-surface/70 leading-relaxed">A curated collection of thoughts, theories, and explorations.</p>
+        </div>
+        <div id="bookshelfRows" class="space-y-24"></div>
+    </div>
+
+    <!-- Timeline View -->
+    <div id="timelineContainer" class="max-w-3xl mx-auto w-full px-6 py-12 md:py-20 flex-1 hidden">
+        <header class="mb-16 max-w-xl">
+            <h2 class="font-headline text-5xl text-on-surface mb-4 leading-tight tracking-tight">Chronological Study</h2>
+            <p class="font-body text-lg text-on-surface-variant leading-relaxed mb-8">A minimalist, linear view of your captured thoughts.</p>
+            <!-- Month Navigator -->
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-on-surface-variant text-lg">calendar_month</span>
+                <label class="font-label text-xs uppercase tracking-widest text-on-surface-variant">Jump to</label>
+                <input
+                    type="month"
+                    id="timelineMonthPicker"
+                    class="bg-surface-container-high border-b-[1.5px] border-x-0 border-t-0 border-primary focus:border-primary-container text-on-surface text-sm rounded-t-sm py-1.5 px-3 outline-none transition-colors"
+                />
+                <button id="timelineJumpBtn"
+                    class="px-4 py-1.5 rounded-md bg-primary text-on-primary font-label text-xs uppercase tracking-wide hover:opacity-90 transition-opacity">
+                    Go
+                </button>
+            </div>
+        </header>
+        <div class="relative before:absolute before:inset-0 before:ml-2 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-[1px] before:bg-outline-variant/15 space-y-16 pb-24" id="timelineRows"></div>
+    </div>
+
+    <!-- Search Results View -->
+    <!-- Dashboard View -->
+    <div id="dashboardContainer" class="hidden flex-1 px-6 md:px-10 pb-12 max-w-7xl mx-auto w-full flex flex-col gap-8 md:gap-12 mt-6 md:mt-0">
+        <!-- Header with Title and Time Filter -->
+        <div class="flex justify-between items-center w-full mb-2">
+            <h2 class="font-headline text-3xl font-medium text-on-surface tracking-tight">Knowledge Analytics</h2>
+            <select id="dashboardTimeFilter" class="bg-surface-container-high border-b border-primary border-b-[1.5px] border-x-0 border-t-0 focus:border-primary-container text-on-surface text-sm rounded-t-sm py-2 px-3 outline-none">
+                <option value="1w">近1周</option>
+                <option value="1m" selected>近1月</option>
+                <option value="3m">近3月</option>
+                <option value="1y">今年</option>
+            </select>
+        </div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+<!-- Left Side: Line Chart (Acquisition Frequency) -->
+<section class="lg:col-span-7 bg-surface-container-lowest p-6 md:p-8 shadow-[0_4px_32px_rgba(28,28,22,0.04)] relative">
+<!-- Subtle background layer for depth -->
+<div class="absolute inset-0 bg-surface-container-low -z-10 translate-y-2 translate-x-2"></div>
+<div class="flex justify-between items-end mb-8">
+<div>
+<h3 class="font-body text-lg font-medium text-on-surface mb-1">Acquisition Frequency</h3>
+<p class="font-label text-sm text-on-surface opacity-60">Volume of new entries over the last 30 days.</p>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-sm">+14% vs last mo</span>
+</div>
+</div>
+<!-- Chart Container (CSS Mockup of a line chart) -->
+<div class="h-64 w-full relative flex items-end pt-4">
+<!-- Grid Lines -->
+<div class="absolute inset-0 flex flex-col justify-between pt-4 pb-6 z-0">
+<div class="border-b border-surface-variant w-full h-0"></div>
+<div class="border-b border-surface-variant w-full h-0"></div>
+<div class="border-b border-surface-variant w-full h-0"></div>
+<div class="border-b border-surface-variant w-full h-0"></div>
+<div class="border-b border-surface-variant w-full h-0"></div>
+</div>
+<!-- Data Line (SVG representation for cleanliness) -->
+<svg class="absolute inset-0 h-full w-full pt-4 pb-6 z-10" preserveaspectratio="none" viewbox="0 0 100 100">
+<!-- Gradient Fill -->
+<defs>
+<lineargradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
+<stop class="text-primary-container" offset="0%" stop-color="currentColor" stop-opacity="0.2"></stop>
+<stop class="text-primary-container" offset="100%" stop-color="currentColor" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+<path d="M0,80 L10,75 L20,85 L30,60 L40,65 L50,40 L60,50 L70,30 L80,35 L90,15 L100,20 L100,100 L0,100 Z" fill="url(#chartGradient)"></path>
+<!-- Line -->
+<polyline class="text-primary" fill="none" points="0,80 10,75 20,85 30,60 40,65 50,40 60,50 70,30 80,35 90,15 100,20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></polyline>
+<!-- Data Points -->
+<circle class="text-surface" cx="50" cy="40" fill="currentColor" r="1.5" stroke="currentColor" style="stroke: #d97757; stroke-width: 1px;"></circle>
+<circle class="text-surface" cx="70" cy="30" fill="currentColor" r="1.5" stroke="currentColor" style="stroke: #d97757; stroke-width: 1px;"></circle>
+<circle class="text-surface" cx="90" cy="15" fill="currentColor" r="1.5" stroke="currentColor" style="stroke: #d97757; stroke-width: 1px;"></circle>
+</svg>
+<!-- X-Axis Labels -->
+<div class="absolute bottom-0 w-full flex justify-between text-[10px] font-label text-on-surface opacity-50 px-1">
+<span>01 Oct</span>
+<span>08 Oct</span>
+<span>15 Oct</span>
+<span>22 Oct</span>
+<span>30 Oct</span>
+</div>
+</div>
+</section>
+<!-- Right Side: Heatmap (Knowledge Density) -->
+<section class="lg:col-span-5 bg-surface-container-low p-6 md:p-8 rounded-sm">
+<div class="mb-6">
+<h3 class="font-body text-lg font-medium text-on-surface mb-1">Knowledge Density</h3>
+<p class="font-label text-sm text-on-surface opacity-60">Distribution by conceptual category.</p>
+</div>
+<!-- CSS Heatmap / Treemap Mockup -->
+<div class="w-full aspect-square grid grid-cols-4 grid-rows-4 gap-2">
+<!-- Philosophy (Large, High Density) -->
+<div class="col-span-2 row-span-2 bg-secondary-container rounded-sm p-4 flex flex-col justify-between group hover:bg-secondary-fixed transition-colors">
+<span class="font-label text-xs font-medium text-on-secondary-container opacity-80 group-hover:opacity-100">Philosophy</span>
+<span class="font-headline text-2xl text-on-secondary-container">34%</span>
+</div>
+<!-- Science (Medium, Medium Density) -->
+<div class="col-span-2 row-span-1 bg-surface-container-high rounded-sm p-3 flex flex-col justify-between group hover:bg-surface-variant transition-colors border-b border-outline-variant/10">
+<span class="font-label text-xs font-medium text-on-surface opacity-70 group-hover:opacity-100">Science</span>
+<span class="font-body text-sm font-medium text-on-surface">21%</span>
+</div>
+<!-- History (Medium) -->
+<div class="col-span-1 row-span-2 bg-primary-container/20 rounded-sm p-3 flex flex-col justify-between group hover:bg-primary-container/30 transition-colors">
+<span class="font-label text-xs font-medium text-on-primary-container opacity-80 group-hover:opacity-100 truncate">History</span>
+<span class="font-body text-sm font-medium text-on-primary-container">18%</span>
+</div>
+<!-- Tech (Small) -->
+<div class="col-span-1 row-span-1 bg-surface-container-high rounded-sm p-2 flex flex-col justify-between group hover:bg-surface-variant transition-colors">
+<span class="font-label text-[10px] font-medium text-on-surface opacity-70 truncate">Tech</span>
+<span class="font-body text-xs font-medium text-on-surface">12%</span>
+</div>
+<!-- Literature (Small) -->
+<div class="col-span-2 row-span-1 bg-surface-container-lowest rounded-sm p-3 flex flex-col justify-between group hover:bg-surface-container-high transition-colors border-b border-outline-variant/20">
+<span class="font-label text-xs font-medium text-on-surface opacity-70 group-hover:opacity-100">Literature</span>
+<span class="font-body text-sm font-medium text-on-surface">9%</span>
+</div>
+<!-- Art (Smallest) -->
+<div class="col-span-1 row-span-1 bg-surface-container rounded-sm p-2 flex flex-col justify-between group hover:bg-surface-variant transition-colors">
+<span class="font-label text-[10px] font-medium text-on-surface opacity-70 truncate">Art</span>
+<span class="font-body text-xs font-medium text-on-surface">6%</span>
+</div>
+</div>
+<div class="mt-6 flex items-center justify-between text-xs font-label text-on-surface opacity-60">
+<span>Low Density</span>
+<div class="flex-1 mx-4 h-1 bg-gradient-to-r from-surface-container to-secondary-container rounded-full"></div>
+<span>High Density</span>
+</div>
+</section>
+</div>
+</div>
+    <div id="searchResults" class="max-w-3xl mx-auto w-full px-6 py-12 flex-1 hidden">
+    </div>
+
+    <!-- Footer Stats -->
+    <div id="statsBar" class="border-t border-outline-variant/10 px-8 py-4 text-xs text-on-surface-variant font-label flex gap-4 bg-surface-container-lowest mt-auto">
+        <span id="statTotal">0 items</span>
+        <span id="statCategories">0 categories</span>
+        <span id="statPlatforms">Multiple platforms</span>
+    </div>
+</main>
+
+<!-- Book Detail Modal (Example/Detail layout injected here) -->
+<div id="modalOverlay" class="fixed inset-0 bg-on-surface/20 backdrop-blur-sm z-[100] flex items-center justify-center hidden">
+    <div id="modalCard" class="bg-surface-container-lowest rounded-xl shadow-[0px_12px_32px_rgba(28,28,26,0.06)] w-full max-w-[1200px] h-[90vh] md:h-[80vh] overflow-hidden flex flex-col md:flex-row shadow-2xl relative">
+        <div id="modalContent" class="flex flex-col md:flex-row w-full h-full"></div>
+    </div>
+</div>
+
+<!-- Settings Modal (Example/Config layout injected here) -->
+<div id="settingsOverlay" class="fixed inset-0 bg-on-surface/20 backdrop-blur-sm z-[100] flex items-center justify-center hidden">
+    <div id="settingsPanel" class="bg-surface-container-lowest rounded-xl shadow-[0px_12px_32px_rgba(28,28,26,0.06)] w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div class="px-8 py-6 bg-surface-container-lowest border-b-2 border-surface-container-low flex justify-between items-center sticky top-0 z-10">
+            <div>
+                <h2 class="font-headline text-2xl font-bold text-on-surface tracking-tight">Configuration</h2>
+                <p class="font-body text-sm text-on-surface-variant mt-1">Adjust your environment parameters.</p>
+            </div>
+            <button id="settingsClose" class="text-on-surface-variant hover:text-on-surface transition-colors p-2 rounded-full hover:bg-surface-container-low">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <div class="p-8 overflow-y-auto bg-surface space-y-12 flex-1">
+            <section class="space-y-6">
+                <h3 class="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">psychology</span> LLM Parameters
+                </h3>
+                <div class="space-y-6">
+                    <div>
+                        <label class="block font-label text-sm text-on-surface font-medium mb-2">Primary Provider</label>
+                        <select id="cfgProvider" class="w-full bg-surface-container-low border-b border-outline-variant/20 focus:border-outline-variant/50 focus:bg-surface-container-lowest text-on-surface text-sm rounded-t-sm py-3 px-4 outline-none transition-colors">
+                            <option value="openai">OpenAI Compatible</option>
+                            <option value="anthropic">Anthropic Standard</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-label text-sm text-on-surface font-medium mb-2">API Base URL</label>
+                        <input id="cfgBaseUrl" placeholder="https://api.openai.com/v1" class="w-full bg-surface-container-low border-b border-outline-variant/20 focus:border-outline-variant/50 focus:bg-surface-container-lowest text-on-surface text-sm rounded-t-sm py-3 px-4 outline-none transition-colors" />
+                    </div>
+                    <div>
+                        <label class="block font-label text-sm text-on-surface font-medium mb-2">API Key</label>
+                        <div class="relative">
+                            <input id="cfgApiKey" type="password" placeholder="sk-..." class="w-full bg-surface-container-low border-b border-outline-variant/20 focus:border-outline-variant/50 focus:bg-surface-container-lowest text-on-surface text-sm rounded-t-sm py-3 px-4 pr-12 outline-none transition-colors" />
+                            <button class="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface" type="button" onclick="toggleApiKeyVisibility()">
+                                <span class="material-symbols-outlined text-[20px]">visibility</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block font-label text-sm text-on-surface font-medium mb-2">Model Name</label>
+                        <input id="cfgModel" placeholder="gpt-4o-mini" class="w-full bg-surface-container-low border-b border-outline-variant/20 focus:border-outline-variant/50 focus:bg-surface-container-lowest text-on-surface text-sm rounded-t-sm py-3 px-4 outline-none transition-colors" />
+                    </div>
+                </div>
+            </section>
+            <section class="space-y-6">
+                <h3 class="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">integration_instructions</span> OpenClaw Integration
+                </h3>
+                <div class="bg-surface-container-low p-6 rounded-lg text-sm">
+                    <p class="mb-2"><strong>Webhook URL:</strong></p>
+                    <code id="webhookUrl" class="block bg-surface-container-lowest p-2 rounded border border-outline-variant/20 mb-2 font-mono">http://localhost:3456/api/webhook/openclaw</code>
+                    <button class="text-primary hover:underline font-label" onclick="copyWebhookUrl()">Copy URL</button>
+                </div>
+            </section>
+        </div>
+        <div class="px-8 py-6 bg-surface-container-lowest flex justify-between items-center z-10 border-t border-outline-variant/10">
+            <div class="flex items-center gap-4">
+                <button id="testLlmBtn" class="font-label text-sm font-medium text-on-surface px-4 py-2 bg-surface-container-highest rounded hover:bg-outline-variant/20 transition-colors flex items-center gap-2"><span class="material-symbols-outlined text-sm">network_check</span> Test Connection</button>
+                <span id="testResult" class="text-sm font-label"></span>
+            </div>
+            <button id="saveSettingsBtn" class="font-label text-sm font-medium bg-primary text-on-primary px-6 py-2 rounded hover:bg-primary-container transition-colors shadow-sm">Save Configuration</button>
+        </div>
+    </div>
+</div>
+
+<div id="toastContainer" class="toast-container"></div>
+
+<script src="/js/api.js"></script>
+<script src="/js/bookshelf.js"></script>
+<script src="/js/modal.js"></script>
+<script src="/js/settings.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="/js/app.js"></script>
+
+<script>
+    // Polyfill icon toggling for setting page
+    function toggleApiKeyVisibility() {
+        const input = document.getElementById('cfgApiKey');
+        input.type = input.type === 'password' ? 'text' : 'password';
+    }
+</script>
+
 </body>
-
 </html>

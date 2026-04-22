@@ -1,60 +1,38 @@
 // public/js/bookshelf.js - Bookshelf and timeline rendering
-const PLATFORM_LABELS = {
-    bilibili: 'Bilibili',
-    youtube: 'YouTube',
-    twitter: 'Twitter',
-    xiaohongshu: '小红书',
-    zhihu: '知乎',
-    wechat: '公众号',
-    weibo: '微博',
-    web: '网页',
-};
+const PLATFORM_LABELS = { bilibili: 'Bilibili', youtube: 'YouTube', twitter: 'Twitter', xiaohongshu: '小红书', zhihu: '知乎', wechat: '公众号', weibo: '微博', web: '网页' };
 
 function getPlatformColor(platform) {
-    const colors = {
-        bilibili: '#00a1d6', youtube: '#ff0000', twitter: '#1d9bf0',
-        xiaohongshu: '#ff2442', zhihu: '#0084ff', wechat: '#07c160',
-        weibo: '#e6162d',
-    };
+    const colors = { bilibili: '#00a1d6', youtube: '#ff0000', twitter: '#1d9bf0', xiaohongshu: '#ff2442', zhihu: '#0084ff', wechat: '#07c160', weibo: '#e6162d' };
     return colors[platform] || '#6b7280';
 }
 
-// Render bookshelf grouped by category
 function renderBookshelf(booksData, categoriesData, container) {
-    container.innerHTML = '';
+    const rowContainer = document.getElementById('bookshelfRows') || container;
+    rowContainer.innerHTML = '';
 
-    // Group books by category, preserving category sort order
     const catMap = {};
-    for (const cat of categoriesData) {
-        catMap[cat.name] = { ...cat, books: [] };
-    }
-
+    for (const cat of categoriesData) { catMap[cat.name] = { ...cat, books: [] }; }
     for (const book of booksData) {
-        if (catMap[book.category]) {
-            catMap[book.category].books.push(book);
-        } else {
-            (catMap['其他'] ||= { name: '其他', icon: '📦', books: [] }).books.push(book);
+        if (catMap[book.category]) { catMap[book.category].books.push(book); } else {
+            (catMap['其他'] ||= { name: '其他', icon: 'package', books: [] }).books.push(book);
         }
     }
 
     const sections = Object.values(catMap).filter(c => c.books.length > 0);
-    if (sections.length === 0) {
-        container.innerHTML = '';
-        return;
-    }
+    if (sections.length === 0) { rowContainer.innerHTML = ''; return; }
 
     for (const cat of sections) {
-        const section = document.createElement('div');
-        section.className = 'category-section';
+        const section = document.createElement('section');
         section.dataset.category = cat.name;
 
         section.innerHTML = `
-      <div class="category-header">
-        <span class="category-icon">${cat.icon || '📚'}</span>
-        <span class="category-name">${cat.name}</span>
-        <span class="category-count">${cat.books.length} 本</span>
+      <div class="flex items-baseline justify-between mb-8">
+        <h2 class="font-headline text-3xl text-on-surface flex items-center gap-2">
+            <span class="material-symbols-outlined">${escapeHtml(cat.icon || 'folder')}</span>
+            ${escapeHtml(cat.name)} <span class="text-sm text-on-surface-variant font-body ml-2">(${cat.books.length})</span>
+        </h2>
       </div>
-      <div class="shelf-row"></div>
+      <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-5 gap-y-8 shelf-row"></div>
     `;
 
         const row = section.querySelector('.shelf-row');
@@ -63,116 +41,179 @@ function renderBookshelf(booksData, categoriesData, container) {
             row.appendChild(card);
         });
 
-        container.appendChild(section);
+        rowContainer.appendChild(section);
     }
 }
 
-// Build a book card element
 function buildBookCard(book, index = 0) {
     const card = document.createElement('div');
-    card.className = 'book-card';
+    card.className = 'group cursor-pointer';
     card.dataset.bookId = book.id;
     card.style.animationDelay = `${Math.min(index * 0.05, 0.5)}s`;
 
     const platformLabel = PLATFORM_LABELS[book.platform] || book.platform;
-    const coverHtml = book.cover_url
-        ? `<img src="${escapeHtml(book.cover_url)}" alt="${escapeHtml(book.title || '')}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="book-no-cover" style="display:none"><div class="no-cover-icon">📄</div><div class="no-cover-text">${escapeHtml(book.title || '无标题')}</div></div>`
-        : `<div class="book-no-cover"><div class="no-cover-icon">📄</div><div class="no-cover-text">${escapeHtml(book.title || '无标题')}</div></div>`;
+    const coverPath = book.cover_local || book.cover_url;
+    const initials = (book.title || 'U').substring(0, 2).toUpperCase();
+    const platColor = getPlatformColor(book.platform);
+
+    const coverHtml = coverPath
+        ? `<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+               src="${escapeHtml(coverPath)}" alt="${escapeHtml(book.title || '')}" loading="lazy"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
+           <div class="w-full h-full items-center justify-center p-4 bg-gradient-to-br from-primary/80 to-primary-container/90" style="display:none">
+              <span class="font-headline text-3xl text-on-primary text-center leading-tight">${initials}</span>
+           </div>`
+        : `<div class="w-full h-full flex items-center justify-center p-4 bg-gradient-to-br from-primary/80 to-primary-container/90">
+              <span class="font-headline text-3xl text-on-primary text-center leading-tight">${initials}</span>
+           </div>`;
 
     card.innerHTML = `
-    <div class="book-cover-wrapper">
-      <div class="book-cover" style="--book-color:${getPlatformColor(book.platform)}">
-        ${coverHtml}
-        <div class="book-overlay">
-          <span class="book-overlay-text">${escapeHtml(book.title || '')}</span>
+    <div class="book-cover-3d relative mb-3" style="perspective: 800px;">
+        <div class="w-full aspect-[2/3] rounded-sm overflow-hidden relative
+                    shadow-[4px_4px_12px_rgba(28,28,22,0.08)]
+                    transition-all duration-300
+                    group-hover:-translate-y-1.5 group-hover:shadow-[6px_10px_24px_rgba(28,28,22,0.15)]"
+             style="transform-style: preserve-3d; transition: transform 0.35s cubic-bezier(0.4,0,0.2,1), box-shadow 0.35s;">
+            <!-- Book spine (left edge gradient) -->
+            <div class="absolute left-0 top-0 bottom-0 w-[10px] z-20 pointer-events-none"
+                 style="background: linear-gradient(90deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.08) 60%, transparent 100%);"></div>
+            <!-- Inner highlight (simulates page edge light) -->
+            <div class="absolute left-[10px] top-0 bottom-0 w-[2px] z-20 pointer-events-none"
+                 style="background: linear-gradient(180deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.08) 100%);"></div>
+            <!-- Cover image -->
+            ${coverHtml}
+            <!-- Bottom gradient overlay for readability -->
+            <div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none z-10"></div>
+            <!-- Platform badge -->
+            <span class="absolute bottom-2 right-2 z-20 px-1.5 py-0.5 rounded-sm text-[9px] font-bold font-label uppercase tracking-wider text-white/90 backdrop-blur-sm shadow-sm"
+                  style="background: ${platColor}cc;">${escapeHtml(platformLabel)}</span>
+            <!-- Entry count badge -->
+            ${book.entry_count > 1 ? `<span class="absolute top-2 right-2 z-20 w-5 h-5 flex items-center justify-center rounded-full bg-primary text-on-primary text-[9px] font-bold shadow-sm">${book.entry_count}</span>` : ''}
         </div>
-        <span class="book-platform-badge">${platformLabel}</span>
-        ${book.entry_count > 1 ? `<span class="book-count-badge">${book.entry_count}篇</span>` : ''}
-      </div>
     </div>
-    <div class="book-info">
-      <div class="book-title">${escapeHtml(book.title || '无标题')}</div>
-      ${book.author ? `<div class="book-author">${escapeHtml(book.author)}</div>` : ''}
-    </div>
+    <h3 class="font-headline text-sm font-medium text-on-surface leading-snug mb-0.5 line-clamp-2">${escapeHtml(book.title || '无标题')}</h3>
+    ${book.author ? `<p class="font-body text-xs text-on-surface-variant line-clamp-1">${escapeHtml(book.author)}</p>` : ''}
   `;
 
     card.addEventListener('click', () => window.openBookModal(book.id));
     return card;
 }
 
-// Render timeline view
 function renderTimeline(entries, container) {
-    container.innerHTML = '';
+    const rowContainer = document.getElementById('timelineRows') || container;
+    rowContainer.innerHTML = '';
     if (!entries.length) return;
 
-    const list = document.createElement('div');
-    list.className = 'timeline-list';
-
+    // Group entries by month (YYYY-MM)
+    const groups = {};
+    const groupOrder = [];
     entries.forEach(entry => {
-        const item = document.createElement('div');
-        item.className = 'timeline-item';
-        const date = new Date(entry.created_at).toLocaleDateString('zh-CN');
-        const platLabel = PLATFORM_LABELS[entry.platform] || entry.platform;
-
-        item.innerHTML = `
-      <div class="timeline-cover">
-        ${entry.cover_url
-                ? `<img src="${escapeHtml(entry.cover_url)}" alt="" onerror="this.parentElement.innerHTML='📄'" />`
-                : '📄'}
-      </div>
-      <div class="timeline-body">
-        <div class="timeline-title">${escapeHtml(entry.title || '无标题')}</div>
-        <div class="timeline-meta">
-          <span class="platform-tag">${platLabel}</span>
-          <span class="category-tag">${escapeHtml(entry.category)}</span>
-          ${entry.author ? `<span>✍️ ${escapeHtml(entry.author)}</span>` : ''}
-          <span>${date}</span>
-        </div>
-      </div>
-    `;
-
-        item.addEventListener('click', () => {
-            if (entry.book_id) window.openBookModal(entry.book_id);
-            else window.openEntryModal(entry);
-        });
-        list.appendChild(item);
+        const d = new Date(entry.created_at);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (!groups[key]) { groups[key] = []; groupOrder.push(key); }
+        groups[key].push(entry);
     });
 
-    container.appendChild(list);
+    groupOrder.forEach(monthKey => {
+        // ── Month anchor header ──────────────────────────────────
+        const [yr, mo] = monthKey.split('-');
+        const monthLabel = new Date(+yr, +mo - 1, 1).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' });
+        const anchor = document.createElement('div');
+        anchor.id = `month-${monthKey}`;
+        anchor.className = 'flex items-center gap-4 py-2 scroll-mt-24';
+        anchor.innerHTML = `
+            <span class="font-headline text-2xl text-on-surface opacity-70 whitespace-nowrap">${monthLabel}</span>
+            <div class="flex-1 h-px bg-outline-variant/20"></div>
+            <span class="font-label text-xs text-on-surface-variant">${groups[monthKey].length} 条</span>
+        `;
+        rowContainer.appendChild(anchor);
+
+        // ── Entries in this month ────────────────────────────────
+        groups[monthKey].forEach((entry, i) => {
+            const item = document.createElement('article');
+            item.className = 'relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group';
+            const date = new Date(entry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const platLabel = PLATFORM_LABELS[entry.platform] || entry.platform;
+            const hasImage = !!(entry.cover_local || entry.cover_url);
+
+            const markerHTML = `
+                <div class="flex items-center justify-center w-5 h-5 rounded-full border border-surface bg-surface-container-lowest shadow-sm shadow-on-surface/5 absolute left-0 md:left-1/2 -translate-x-1/2 z-10 transition-colors group-hover:border-primary/30">
+                    <div class="w-1.5 h-1.5 bg-outline-variant rounded-full group-hover:bg-primary transition-colors"></div>
+                </div>`;
+
+            let contentHTML = '';
+            const onclickAttr = `onclick="if('${entry.book_id}') window.openBookModal('${entry.book_id}'); else window.openEntryModal(${JSON.stringify(entry).replace(/"/g, '&quot;')})"`;
+
+            if (hasImage) {
+                contentHTML = `
+                <div class="w-[calc(100%-2rem)] md:w-[calc(50%-2.5rem)] ml-8 md:ml-0 md:group-odd:mr-auto md:group-even:ml-auto cursor-pointer" ${onclickAttr}>
+                    <div class="bg-surface-container-lowest rounded-sm p-1 overflow-hidden transition-all duration-500 hover:bg-surface-container-low shadow-[0_4px_32px_rgba(28,28,22,0.04)]">
+                        <div class="p-6 pb-4">
+                            <time class="font-label text-xs text-on-surface-variant uppercase tracking-widest mb-3 block">${date} • ${platLabel}</time>
+                            <h3 class="font-headline text-2xl text-on-surface mb-2">${escapeHtml(entry.title || '无标题')}</h3>
+                            <p class="font-body text-on-surface-variant text-sm leading-relaxed mb-6 line-clamp-3">${escapeHtml(entry.description || '')}</p>
+                            <div class="flex gap-2">
+                                <span class="px-3 py-1 bg-surface-container-highest text-on-surface-variant font-label text-xs rounded-full">${escapeHtml(entry.category)}</span>
+                                ${entry.author ? `<span class="px-3 py-1 bg-surface-container-highest text-on-surface-variant font-label text-xs rounded-full">${escapeHtml(entry.author)}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="w-full aspect-[16/9] rounded-sm overflow-hidden relative">
+                            <img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" src="${escapeHtml(entry.cover_local || entry.cover_url)}" onerror="this.style.display='none'" />
+                        </div>
+                    </div>
+                </div>`;
+            } else {
+                contentHTML = `
+                <div class="w-[calc(100%-2rem)] md:w-[calc(50%-2.5rem)] ml-8 md:ml-0 md:group-odd:mr-auto md:group-even:ml-auto cursor-pointer" ${onclickAttr}>
+                    <div class="bg-surface-container-lowest rounded-sm p-8 shadow-[0_4px_32px_rgba(28,28,22,0.04)] transition-all duration-500 hover:bg-surface-container-low">
+                        <time class="font-label text-xs text-on-surface-variant uppercase tracking-widest mb-3 block">${date} • ${platLabel}</time>
+                        <h3 class="font-headline text-xl text-on-surface mb-3">${escapeHtml(entry.title || '无标题')}</h3>
+                        <p class="font-body text-on-surface-variant text-sm leading-relaxed mb-4 line-clamp-3">${escapeHtml(entry.description || '')}</p>
+                        <div class="flex gap-2">
+                            <span class="px-3 py-1 bg-secondary-container text-on-secondary-container font-label text-xs rounded-full">${escapeHtml(entry.category)}</span>
+                            ${entry.author ? `<span class="px-3 py-1 bg-surface-container-highest text-on-surface-variant font-label text-xs rounded-full">${escapeHtml(entry.author)}</span>` : ''}
+                        </div>
+                    </div>
+                </div>`;
+            }
+
+            item.innerHTML = markerHTML + contentHTML;
+            rowContainer.appendChild(item);
+        });
+    });
+
+    rowContainer.innerHTML += `<div class="flex justify-center md:justify-center justify-start ml-2 md:ml-0 relative -top-8"><div class="w-2 h-2 rounded-full bg-outline-variant/30"></div></div>`;
 }
 
-// Render search results
 function renderSearchResults(entries, query, container) {
-    container.innerHTML = `<p class="search-header">搜索「<span class="search-highlight">${escapeHtml(query)}</span>」共 ${entries.length} 条结果</p>`;
-
+    container.innerHTML = `
+        <h2 class="font-headline text-3xl text-on-surface mb-8">Search: <span class="italic text-primary">${escapeHtml(query)}</span> (${entries.length})</h2>
+    `;
     if (!entries.length) {
-        container.innerHTML += '<p style="color:var(--text-muted);text-align:center;padding:40px">没有找到相关内容</p>';
+        container.innerHTML += '<p class="text-on-surface-variant text-center py-20 font-body">No results found.</p>';
         return;
     }
-
     const list = document.createElement('div');
-    list.className = 'timeline-list';
-
+    list.className = 'space-y-6';
     entries.forEach(entry => {
         const item = document.createElement('div');
-        item.className = 'timeline-item';
+        item.className = 'bg-surface-container-low rounded-xl p-6 flex gap-6 cursor-pointer hover:bg-surface-container-highest transition-colors border border-outline-variant/10';
+        item.onclick = () => window.openEntryModal(entry);
+        
         const date = new Date(entry.created_at).toLocaleDateString('zh-CN');
-
+        const imgNode = (entry.cover_local || entry.cover_url) ? `<img src="${escapeHtml(entry.cover_local || entry.cover_url)}" class="w-24 h-24 object-cover rounded-lg flex-shrink-0" onerror="this.style.display='none'"/>` : '';
+        
         item.innerHTML = `
-      <div class="timeline-cover">
-        ${entry.cover_url ? `<img src="${escapeHtml(entry.cover_url)}" alt="" onerror="this.parentElement.innerHTML='📄'" />` : '📄'}
-      </div>
-      <div class="timeline-body">
-        <div class="timeline-title">${escapeHtml(entry.title || '无标题')}</div>
-        <div class="timeline-meta">
-          <span class="category-tag">${escapeHtml(entry.category)}</span>
-          ${entry.author ? `<span>✍️ ${escapeHtml(entry.author)}</span>` : ''}
-          <span>${date}</span>
-        </div>
-      </div>
-    `;
-
-        item.addEventListener('click', () => window.openEntryModal(entry));
+            ${imgNode}
+            <div class="flex-1">
+                <h3 class="font-headline text-xl text-on-surface mb-2">${escapeHtml(entry.title || '无标题')}</h3>
+                <div class="flex flex-wrap gap-2 mb-2 font-label text-xs text-on-surface-variant">
+                    <span class="px-2 py-1 bg-surface rounded">${escapeHtml(entry.category)}</span>
+                    ${entry.author ? `<span class="px-2 py-1 bg-surface rounded">${escapeHtml(entry.author)}</span>` : ''}
+                    <span class="px-2 py-1 bg-surface rounded">${date}</span>
+                </div>
+            </div>
+        `;
         list.appendChild(item);
     });
     container.appendChild(list);

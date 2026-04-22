@@ -1,16 +1,68 @@
 // server/routes/entries.js
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const axios = require('axios');
 const logger = require('../utils/logger');
 const queries = require('../db/queries');
 const { parseUrl } = require('../services/parser');
 const { classifyEntry } = require('../services/classifier');
 const { processBook } = require('../services/bookmaker');
 
+async function downloadCover(coverUrl, sourceUrl) {
+    if (!coverUrl) return null;
+    try {
+        // Normalize protocol-relative URLs
+        if (coverUrl.startsWith('//')) coverUrl = 'https:' + coverUrl;
+        // Skip data URIs
+        if (coverUrl.startsWith('data:')) return null;
+
+        const extMatch = coverUrl.match(/\.(jpg|jpeg|png|webp|gif)/i);
+        const ext = extMatch ? extMatch[1].toLowerCase() : 'jpg';
+        const filename = crypto.createHash('md5').update(coverUrl).digest('hex') + '.' + ext;
+        const filepath = path.join(__dirname, '../../data/covers', filename);
+        
+        const dir = path.dirname(filepath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        
+        if (fs.existsSync(filepath)) return '/covers/' + filename;
+
+        // Use Referer from source URL to avoid hotlink blocks
+        const referer = sourceUrl ? new URL(sourceUrl).origin : undefined;
+        const response = await axios.get(coverUrl, {
+            responseType: 'stream',
+            timeout: 15000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                ...(referer ? { Referer: referer } : {}),
+            },
+        });
+        const writer = fs.createWriteStream(filepath);
+        response.data.pipe(writer);
+        return new Promise((resolve, reject) => {
+            writer.on('finish', () => resolve('/covers/' + filename));
+            writer.on('error', reject);
+        });
+    } catch (err) {
+        logger.warn(`Failed to download cover: ${err.message}`);
+        return null;
+    }
+}
+
 // POST /api/entries - Add a new link
 router.post('/', async (req, res) => {
-    const { url, note, category: manualCategory, tags } = req.body;
+    let { url, note, category: manualCategory, tags } = req.body;
     if (!url) return res.status(400).json({ success: false, error: 'URL is required' });
+
+    // Extract actual URL if user pasted text like "标题 - 知乎 https://www.zhihu.com/..."
+    const urlMatch = url.match(/(https?:\/\/[^\s]+)/);
+    if (urlMatch) {
+        url = urlMatch[1].replace(/[)）\]】>》]+$/, ''); // trim trailing brackets
+    } else if (!url.startsWith('http')) {
+        url = 'https://' + url;
+    }
 
     // Check duplicate
     const existing = queries.getEntryByUrl(url);
@@ -33,12 +85,18 @@ router.post('/', async (req, res) => {
                 entryData.sub_category = classification.sub_category || null;
                 entryData.summary = entryData.summary || classification.summary || null;
                 if (!entryData.tags?.length) entryData.tags = classification.tags || [];
+                if (classification.clean_title) entryData.title = classification.clean_title;
+                if (classification.clean_author) entryData.author = classification.clean_author;
             } catch (llmErr) {
                 logger.warn(`LLM classification failed, using default: ${llmErr.message}`);
                 entryData.category = '其他';
             }
         } else {
             entryData.category = manualCategory;
+        }
+
+        if (entryData.cover_url) {
+            entryData.cover_local = await downloadCover(entryData.cover_url, url);
         }
 
         // 3. Book merging

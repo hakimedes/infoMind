@@ -140,6 +140,7 @@ function updateBook(id, data) {
     const params = [];
     if (data.title !== undefined) { fields.push('title = ?'); params.push(data.title); }
     if (data.cover_url !== undefined) { fields.push('cover_url = ?'); params.push(data.cover_url); }
+    if (data.cover_local !== undefined) { fields.push('cover_local = ?'); params.push(data.cover_local); }
     if (data.entry_count !== undefined) { fields.push('entry_count = ?'); params.push(data.entry_count); }
     if (data.category !== undefined) { fields.push('category = ?'); params.push(data.category); }
 
@@ -163,16 +164,21 @@ function listBooks({ category, platform, sort = 'updated_at', page = 1, limit = 
     const db = getDb();
     const conditions = [];
     const params = [];
-    if (category) { conditions.push('category = ?'); params.push(category); }
-    if (platform) { conditions.push('platform = ?'); params.push(platform); }
+    if (category) { conditions.push('b.category = ?'); params.push(category); }
+    if (platform) { conditions.push('b.platform = ?'); params.push(platform); }
     const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
     const offset = (page - 1) * limit;
     const rows = db.prepare(`
-    SELECT * FROM books ${where}
-    ORDER BY updated_at DESC
+    SELECT
+        b.id, b.author, b.author_id, b.platform, b.category, b.title,
+        COALESCE(b.cover_local, (SELECT e.cover_local FROM entries e WHERE e.book_id = b.id AND e.cover_local IS NOT NULL LIMIT 1)) as cover_local,
+        COALESCE(b.cover_url, (SELECT e.cover_url FROM entries e WHERE e.book_id = b.id AND e.cover_url IS NOT NULL LIMIT 1)) as cover_url,
+        b.entry_count, b.created_at, b.updated_at
+    FROM books b ${where}
+    ORDER BY b.updated_at DESC
     LIMIT ? OFFSET ?
   `).all(...params, limit, offset);
-    const total = db.prepare(`SELECT COUNT(*) as c FROM books ${where}`).get(...params).c;
+    const total = db.prepare(`SELECT COUNT(*) as c FROM books b ${where}`).get(...params).c;
     return { books: rows, total, page, limit };
 }
 

@@ -10,7 +10,7 @@ function initSettings() {
 }
 
 async function openSettings() {
-    document.getElementById('settingsOverlay').style.display = 'flex';
+    _openOverlay(document.getElementById('settingsOverlay'));
 
     // Load current config
     try {
@@ -18,7 +18,9 @@ async function openSettings() {
         const cfg = res.data;
         document.getElementById('cfgProvider').value = cfg['llm.provider'] || 'openai';
         document.getElementById('cfgBaseUrl').value = cfg['llm.base_url'] || '';
-        document.getElementById('cfgApiKey').value = ''; // never prefill key for security
+        const apiKeyInput = document.getElementById('cfgApiKey');
+        apiKeyInput.value = ''; // never prefill key for security
+        apiKeyInput.placeholder = cfg['llm.api_key'] ? `已保存: ${cfg['llm.api_key']}` : 'sk-...';
         document.getElementById('cfgModel').value = cfg['llm.model'] || '';
     } catch { }
 
@@ -40,12 +42,12 @@ async function openSettings() {
 }
 
 function closeSettings() {
-    document.getElementById('settingsOverlay').style.display = 'none';
+    _closeOverlay(document.getElementById('settingsOverlay'));
 }
 
 async function saveSettings() {
     const btn = document.getElementById('saveSettingsBtn');
-    btn.disabled = true; btn.textContent = '保存中...';
+    btn.disabled = true; btn.textContent = 'Saving...';
 
     const updates = {};
     const provider = document.getElementById('cfgProvider').value;
@@ -60,30 +62,33 @@ async function saveSettings() {
 
     try {
         await api.saveConfig(updates);
-        window.showToast('设置已保存 ✅', 'success');
-        document.getElementById('cfgApiKey').value = ''; // clear after save
+        window.showToast('设置已保存', 'success');
+        const apiKeyInput = document.getElementById('cfgApiKey');
+        apiKeyInput.value = ''; // clear after save
+        try {
+            const res = await api.getConfig();
+            if (res.data['llm.api_key']) apiKeyInput.placeholder = `已保存: ${res.data['llm.api_key']}`;
+        } catch {}
     } catch (err) {
         window.showToast('保存失败: ' + err.message, 'error');
     } finally {
-        btn.disabled = false; btn.textContent = '💾 保存设置';
+        btn.disabled = false; btn.innerHTML = 'Save Configuration';
     }
 }
 
 async function testLlmConnection() {
     const btn = document.getElementById('testLlmBtn');
     const result = document.getElementById('testResult');
-    btn.disabled = true; btn.textContent = '测试中...';
-    result.textContent = ''; result.className = 'test-result';
+    btn.disabled = true; btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">autorenew</span> Testing...';
+    result.textContent = ''; result.className = 'text-sm font-label';
 
     try {
         const res = await api.testLlm();
-        result.textContent = `✅ 连接成功 (${res.data.model}, ${res.data.latency}ms)`;
-        result.className = 'test-result';
+        result.innerHTML = `<span class="text-success flex items-center gap-1"><span class="material-symbols-outlined text-sm">check_circle</span> Success (${res.data.latency}ms)</span>`;
     } catch (err) {
-        result.textContent = `❌ ${err.message}`;
-        result.className = 'test-result error';
+        result.innerHTML = `<span class="text-error flex items-center gap-1"><span class="material-symbols-outlined text-sm">error</span> ${escapeHtml(err.message)}</span>`;
     } finally {
-        btn.disabled = false; btn.textContent = '🧪 测试连接';
+        btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined text-sm">network_check</span> Test Connection';
     }
 }
 
@@ -94,7 +99,7 @@ function toggleApiKeyVisibility() {
 
 function copyWebhookUrl() {
     const url = document.getElementById('webhookUrl').textContent;
-    navigator.clipboard.writeText(url).then(() => window.showToast('已复制 ✅', 'success'));
+    navigator.clipboard.writeText(url).then(() => window.showToast('已复制', 'success'));
 }
 
 window.initSettings = initSettings;

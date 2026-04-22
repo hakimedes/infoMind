@@ -17,9 +17,22 @@ const CATEGORIES = [
 function getLlmConfig() {
     const rawKey = getConfig('llm.api_key');
     const apiKey = rawKey ? decrypt(rawKey) : null;
-    const baseUrl = getConfig('llm.base_url') || 'https://api.openai.com/v1';
-    const model = getConfig('llm.model') || 'gpt-4o-mini';
     const provider = getConfig('llm.provider') || 'openai'; // default to openai
+    
+    let baseUrl = getConfig('llm.base_url');
+    if (!baseUrl) {
+        baseUrl = provider === 'anthropic' ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1';
+    }
+    
+    // Normalize baseUrl to prevent 404 errors
+    baseUrl = baseUrl.replace(/\/+$/, '');
+    if (baseUrl.endsWith('/chat/completions')) {
+        baseUrl = baseUrl.replace(/\/chat\/completions$/, '');
+    } else if (baseUrl.endsWith('/messages')) {
+        baseUrl = baseUrl.replace(/\/messages$/, '');
+    }
+    
+    const model = getConfig('llm.model') || 'gpt-4o-mini';
     return { apiKey, baseUrl, model, provider };
 }
 
@@ -73,13 +86,18 @@ async function classify(entry) {
 
 请从以下分类中选择最匹配的一级分类：${categoriesList}
 
+同时，请对标题和作者名进行清理和纠正（不要臆测，只需去除平台相关的后缀、诸如"XXX关注的XXX内容"等；提取出最核心的标题和真实的作者名或昵称）。如果无法提取出有效作者，可以返回原样或null。
+
 只返回 JSON，不要任何解释：
 {
   "category": "分类名称",
+  "clean_title": "清理后的原文标题",
+  "clean_author": "提取或清理后的作者名",
   "sub_category": "可选子分类，可为null",
   "tags": ["关键词1", "关键词2", "关键词3"],
   "summary": "50字以内的中文摘要"
 }`;
+
 
     const content = await chat([{ role: 'user', content: prompt }]);
     const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -118,4 +136,4 @@ async function testLlmConnection() {
     return { model, baseUrl, latency, response: response.trim() };
 }
 
-module.exports = { classify, generateBookTitle, testLlmConnection };
+module.exports = { chat, classify, generateBookTitle, testLlmConnection };
