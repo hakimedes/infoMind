@@ -18,7 +18,7 @@ async function processBook(entryData) {
             author_id: author_id || null,
             platform,
             category,
-            title: author ? `${author} 的内容` : '未知作者的内容',
+            title: entryData.title || (author ? `${author} 的内容` : '未知作者的内容'),
             cover_url: entryData.cover_url || null,
             cover_local: entryData.cover_local || null,
         });

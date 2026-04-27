@@ -1,5 +1,15 @@
 // public/js/bookshelf.js - Bookshelf and timeline rendering
-const PLATFORM_LABELS = { bilibili: 'Bilibili', youtube: 'YouTube', twitter: 'Twitter', xiaohongshu: '小红书', zhihu: '知乎', wechat: '公众号', weibo: '微博', web: '网页' };
+const PLATFORM_META = {
+    bilibili: { label: '哔哩哔哩', icon: 'smart_display' },
+    youtube: { label: 'YouTube', icon: 'play_circle' },
+    twitter: { label: 'X', icon: 'alternate_email' },
+    xiaohongshu: { label: '小红书', icon: 'auto_awesome' },
+    zhihu: { label: '知乎', icon: 'help' },
+    wechat: { label: '公众号', icon: 'chat' },
+    weibo: { label: '微博', icon: 'public' },
+    web: { label: '网页', icon: 'language' },
+};
+const PLATFORM_LABELS = Object.fromEntries(Object.entries(PLATFORM_META).map(([key, meta]) => [key, meta.label]));
 
 function getPlatformColor(platform) {
     const colors = { bilibili: '#00a1d6', youtube: '#ff0000', twitter: '#1d9bf0', xiaohongshu: '#ff2442', zhihu: '#0084ff', wechat: '#07c160', weibo: '#e6162d' };
@@ -51,9 +61,10 @@ function buildBookCard(book, index = 0) {
     card.dataset.bookId = book.id;
     card.style.animationDelay = `${Math.min(index * 0.05, 0.5)}s`;
 
-    const platformLabel = PLATFORM_LABELS[book.platform] || book.platform;
+    const platformMeta = PLATFORM_META[book.platform] || { label: book.platform || '未知', icon: 'bookmark' };
+    const platformLabel = platformMeta.label;
     const coverPath = book.cover_local || book.cover_url;
-    const initials = (book.title || 'U').substring(0, 2).toUpperCase();
+    const coverTitle = book.latest_entry_title || book.title || '无标题';
     const platColor = getPlatformColor(book.platform);
 
     const coverHtml = coverPath
@@ -61,10 +72,10 @@ function buildBookCard(book, index = 0) {
                src="${escapeHtml(coverPath)}" alt="${escapeHtml(book.title || '')}" loading="lazy"
                onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
            <div class="w-full h-full items-center justify-center p-4 bg-gradient-to-br from-primary/80 to-primary-container/90" style="display:none">
-              <span class="font-headline text-3xl text-on-primary text-center leading-tight">${initials}</span>
+              <span class="font-headline text-xl text-on-primary text-center leading-tight line-clamp-6">${escapeHtml(coverTitle)}</span>
            </div>`
         : `<div class="w-full h-full flex items-center justify-center p-4 bg-gradient-to-br from-primary/80 to-primary-container/90">
-              <span class="font-headline text-3xl text-on-primary text-center leading-tight">${initials}</span>
+              <span class="font-headline text-xl text-on-primary text-center leading-tight line-clamp-6">${escapeHtml(coverTitle)}</span>
            </div>`;
 
     card.innerHTML = `
@@ -85,13 +96,16 @@ function buildBookCard(book, index = 0) {
             <!-- Bottom gradient overlay for readability -->
             <div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none z-10"></div>
             <!-- Platform badge -->
-            <span class="absolute bottom-2 right-2 z-20 px-1.5 py-0.5 rounded-sm text-[9px] font-bold font-label uppercase tracking-wider text-white/90 backdrop-blur-sm shadow-sm"
-                  style="background: ${platColor}cc;">${escapeHtml(platformLabel)}</span>
+            <span class="absolute bottom-2 right-2 z-20 px-1.5 py-0.5 rounded-sm text-[9px] font-label text-white/95 backdrop-blur-sm shadow-sm inline-flex items-center gap-0.5"
+                  style="background: ${platColor}cc;">
+                <span class="material-symbols-outlined text-[11px] leading-none">${escapeHtml(platformMeta.icon)}</span>
+                <span>${escapeHtml(platformLabel)}</span>
+            </span>
             <!-- Entry count badge -->
             ${book.entry_count > 1 ? `<span class="absolute top-2 right-2 z-20 w-5 h-5 flex items-center justify-center rounded-full bg-primary text-on-primary text-[9px] font-bold shadow-sm">${book.entry_count}</span>` : ''}
         </div>
     </div>
-    <h3 class="font-headline text-sm font-medium text-on-surface leading-snug mb-0.5 line-clamp-2">${escapeHtml(book.title || '无标题')}</h3>
+    <h3 class="font-headline text-sm font-medium text-on-surface leading-snug mb-0.5 line-clamp-2">${escapeHtml(coverTitle)}</h3>
     ${book.author ? `<p class="font-body text-xs text-on-surface-variant line-clamp-1">${escapeHtml(book.author)}</p>` : ''}
   `;
 
@@ -132,7 +146,7 @@ function renderTimeline(entries, container) {
         groups[monthKey].forEach((entry, i) => {
             const item = document.createElement('article');
             item.className = 'relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group';
-            const date = new Date(entry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const date = formatDateTimeMinute(entry.created_at);
             const platLabel = PLATFORM_LABELS[entry.platform] || entry.platform;
             const hasImage = !!(entry.cover_local || entry.cover_url);
 
@@ -187,10 +201,10 @@ function renderTimeline(entries, container) {
 
 function renderSearchResults(entries, query, container) {
     container.innerHTML = `
-        <h2 class="font-headline text-3xl text-on-surface mb-8">Search: <span class="italic text-primary">${escapeHtml(query)}</span> (${entries.length})</h2>
+        <h2 class="font-headline text-3xl text-on-surface mb-8">搜索：<span class="italic text-primary">${escapeHtml(query)}</span> (${entries.length})</h2>
     `;
     if (!entries.length) {
-        container.innerHTML += '<p class="text-on-surface-variant text-center py-20 font-body">No results found.</p>';
+        container.innerHTML += '<p class="text-on-surface-variant text-center py-20 font-body">没有找到匹配内容。</p>';
         return;
     }
     const list = document.createElement('div');
@@ -200,7 +214,7 @@ function renderSearchResults(entries, query, container) {
         item.className = 'bg-surface-container-low rounded-xl p-6 flex gap-6 cursor-pointer hover:bg-surface-container-highest transition-colors border border-outline-variant/10';
         item.onclick = () => window.openEntryModal(entry);
         
-        const date = new Date(entry.created_at).toLocaleDateString('zh-CN');
+        const date = formatDateTimeMinute(entry.created_at);
         const imgNode = (entry.cover_local || entry.cover_url) ? `<img src="${escapeHtml(entry.cover_local || entry.cover_url)}" class="w-24 h-24 object-cover rounded-lg flex-shrink-0" onerror="this.style.display='none'"/>` : '';
         
         item.innerHTML = `
@@ -222,6 +236,18 @@ function renderSearchResults(entries, query, container) {
 function escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function formatDateTimeMinute(value) {
+    if (!value) return '';
+    return new Date(String(value).replace(' ', 'T')).toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    });
 }
 
 window.renderBookshelf = renderBookshelf;

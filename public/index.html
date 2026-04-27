@@ -104,28 +104,28 @@ tailwind.config = {
                 <span class="material-symbols-outlined text-primary">psychology</span>
             </div>
             <div>
-                <h2 class="font-headline font-bold text-lg text-on-surface">Library</h2>
-                <p class="font-label text-xs text-on-surface/60">Your Intellectual Study</p>
+                <h2 class="font-headline font-bold text-lg text-on-surface">InfoMind</h2>
+                <p class="font-label text-xs text-on-surface/60">个人知识书架</p>
             </div>
         </div>
         <nav class="flex-1 space-y-2">
             <a id="viewShelf" class="flex items-center space-x-3 px-4 py-3 bg-surface-container-lowest text-primary rounded-lg font-['Manrope'] text-sm tracking-wide uppercase font-semibold ease-out duration-300 cursor-pointer shadow-[0_4px_32px_rgba(28,28,22,0.04)]">
                 <span class="material-symbols-outlined">auto_stories</span>
-                <span>Bookshelf</span>
+                <span>书架</span>
             </a>
             <a id="viewTimeline" class="flex items-center space-x-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:translate-x-1 transition-transform font-['Manrope'] text-sm tracking-wide uppercase font-semibold hover:bg-surface-container-highest rounded-lg ease-out duration-300 cursor-pointer">
                 <span class="material-symbols-outlined">timeline</span>
-                <span>Timeline</span>
+                <span>时间线</span>
             </a>
             <a id="viewDashboard" class="flex items-center space-x-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:translate-x-1 transition-transform font-['Manrope'] text-sm tracking-wide uppercase font-semibold hover:bg-surface-container-highest rounded-lg ease-out duration-300 cursor-pointer">
                 <span class="material-symbols-outlined">insights</span>
-                <span>Dashboard</span>
+                <span>洞察</span>
             </a>
         </nav>
         <div class="mt-auto">
             <button id="addBtn" class="w-full py-3 px-4 bg-gradient-to-r from-primary to-primary-container text-on-primary rounded-md font-body font-medium shadow-[0_12px_32px_rgba(28,28,22,0.06)] hover:opacity-90 transition-opacity flex justify-center items-center space-x-2">
                 <span class="material-symbols-outlined text-sm">add</span>
-                <span>Capture Thought</span>
+                <span>收录链接</span>
             </button>
         </div>
     </div>
@@ -140,7 +140,7 @@ tailwind.config = {
             <div class="flex items-center space-x-4">
                 <div class="relative hidden sm:block">
                     <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/50 text-sm">search</span>
-                    <input id="searchInput" class="pl-9 pr-4 py-2 bg-surface-container-high border-b border-primary focus:border-primary-container focus:bg-surface-container border-b-[1.5px] border-x-0 border-t-0 outline-none rounded-t-sm font-body text-sm text-on-surface w-64 transition-all placeholder:text-on-surface/40" placeholder="Search library..." type="text" autocomplete="off" />
+                    <input id="searchInput" class="pl-9 pr-4 py-2 bg-surface-container-high border-b border-primary focus:border-primary-container focus:bg-surface-container border-b-[1.5px] border-x-0 border-t-0 outline-none rounded-t-sm font-body text-sm text-on-surface w-64 transition-all placeholder:text-on-surface/40" placeholder="搜索书架..." type="search" autocomplete="off" />
                 </div>
                 <!-- Categories filter embedded as a select for simplicity in new UI -->
                 <select id="sortSelect" class="bg-surface-container-high border-b border-primary border-b-[1.5px] border-x-0 border-t-0 focus:border-primary-container text-on-surface text-sm rounded-t-sm py-2 px-3 outline-none">
@@ -157,10 +157,10 @@ tailwind.config = {
         </div>
         <!-- Quick Add Bar -->
         <div id="quickAddBar" class="bg-surface-container-low border-b border-outline-variant/20 px-8 py-4 flex gap-4 hidden">
-            <input type="url" id="urlInput" placeholder="Paste URL..." class="flex-1 bg-surface border-b border-outline-variant/20 px-3 py-2 text-sm outline-none" />
-            <input type="text" id="noteInput" placeholder="Note (optional)" class="flex-1 bg-surface border-b border-outline-variant/20 px-3 py-2 text-sm outline-none" />
-            <button id="addSubmitBtn" class="bg-primary text-on-primary px-4 py-2 rounded text-sm hover:opacity-90">Save</button>
-            <button id="addCancelBtn" class="text-on-surface-variant hover:text-on-surface px-4 py-2 text-sm">Cancel</button>
+            <input type="url" id="urlInput" placeholder="粘贴链接..." class="flex-1 bg-surface border-b border-outline-variant/20 px-3 py-2 text-sm outline-none" />
+            <input type="text" id="noteInput" placeholder="备注（可选）" class="flex-1 bg-surface border-b border-outline-variant/20 px-3 py-2 text-sm outline-none" />
+            <button id="addSubmitBtn" class="bg-primary text-on-primary px-4 py-2 rounded text-sm hover:opacity-90">保存</button>
+            <button id="addCancelBtn" class="text-on-surface-variant hover:text-on-surface px-4 py-2 text-sm">取消</button>
         </div>
         <div id="addStatus" class="px-8 py-2 text-sm text-on-surface-variant hidden"></div>
     </header>
@@ -186,8 +186,8 @@ tailwind.config = {
     <!-- Bookshelf View -->
     <div id="bookshelfContainer" class="px-8 py-8 max-w-screen-2xl mx-auto w-full flex-1">
         <div class="mb-12 max-w-3xl">
-            <h1 class="font-headline text-5xl font-normal leading-tight text-on-surface mb-4">Bookshelf</h1>
-            <p class="font-body text-lg text-on-surface/70 leading-relaxed">A curated collection of thoughts, theories, and explorations.</p>
+            <h1 class="font-headline text-5xl font-normal leading-tight text-on-surface mb-4">书架</h1>
+            <p class="font-body text-lg text-on-surface/70 leading-relaxed">把零散链接整理成一本本可回看的知识书。</p>
         </div>
         <div id="bookshelfRows" class="space-y-24"></div>
     </div>

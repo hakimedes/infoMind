@@ -105,6 +105,7 @@ function deleteEntry(id) {
 function parseEntry(row) {
     return {
         ...row,
+        author: cleanDisplayAuthor(row.author, row.platform),
         tags: safeJsonParse(row.tags, []),
         source_data: safeJsonParse(row.source_data, {}),
     };
@@ -171,25 +172,49 @@ function listBooks({ category, platform, sort = 'updated_at', page = 1, limit = 
     const rows = db.prepare(`
     SELECT
         b.id, b.author, b.author_id, b.platform, b.category, b.title,
-        COALESCE(b.cover_local, (SELECT e.cover_local FROM entries e WHERE e.book_id = b.id AND e.cover_local IS NOT NULL LIMIT 1)) as cover_local,
-        COALESCE(b.cover_url, (SELECT e.cover_url FROM entries e WHERE e.book_id = b.id AND e.cover_url IS NOT NULL LIMIT 1)) as cover_url,
+        COALESCE(
+            (SELECT e.cover_local FROM entries e WHERE e.book_id = b.id AND e.cover_local IS NOT NULL ORDER BY datetime(e.created_at) DESC, e.id DESC LIMIT 1),
+            b.cover_local
+        ) as cover_local,
+        COALESCE(
+            (SELECT e.cover_url FROM entries e WHERE e.book_id = b.id AND e.cover_url IS NOT NULL ORDER BY datetime(e.created_at) DESC, e.id DESC LIMIT 1),
+            b.cover_url
+        ) as cover_url,
+        (SELECT e.title FROM entries e WHERE e.book_id = b.id AND e.title IS NOT NULL ORDER BY datetime(e.created_at) DESC, e.id DESC LIMIT 1) as latest_entry_title,
+        (SELECT e.created_at FROM entries e WHERE e.book_id = b.id ORDER BY datetime(e.created_at) DESC, e.id DESC LIMIT 1) as latest_entry_created_at,
         b.entry_count, b.created_at, b.updated_at
     FROM books b ${where}
-    ORDER BY b.updated_at DESC
+    ORDER BY COALESCE(datetime(latest_entry_created_at), datetime(b.updated_at)) DESC, b.id DESC
     LIMIT ? OFFSET ?
   `).all(...params, limit, offset);
     const total = db.prepare(`SELECT COUNT(*) as c FROM books b ${where}`).get(...params).c;
-    return { books: rows, total, page, limit };
+    return { books: rows.map(parseBook), total, page, limit };
 }
 
 function getBookById(id) {
     const db = getDb();
-    return db.prepare('SELECT * FROM books WHERE id = ?').get(id);
+    const row = db.prepare(`
+    SELECT
+        b.*,
+        COALESCE(
+            (SELECT e.cover_local FROM entries e WHERE e.book_id = b.id AND e.cover_local IS NOT NULL ORDER BY datetime(e.created_at) DESC, e.id DESC LIMIT 1),
+            b.cover_local
+        ) as cover_local,
+        COALESCE(
+            (SELECT e.cover_url FROM entries e WHERE e.book_id = b.id AND e.cover_url IS NOT NULL ORDER BY datetime(e.created_at) DESC, e.id DESC LIMIT 1),
+            b.cover_url
+        ) as cover_url,
+        (SELECT e.title FROM entries e WHERE e.book_id = b.id AND e.title IS NOT NULL ORDER BY datetime(e.created_at) DESC, e.id DESC LIMIT 1) as latest_entry_title,
+        (SELECT e.created_at FROM entries e WHERE e.book_id = b.id ORDER BY datetime(e.created_at) DESC, e.id DESC LIMIT 1) as latest_entry_created_at
+    FROM books b
+    WHERE b.id = ?
+  `).get(id);
+    return row ? parseBook(row) : null;
 }
 
 function getBookEntries(bookId) {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM entries WHERE book_id = ? ORDER BY created_at DESC').all(bookId);
+    const rows = db.prepare('SELECT * FROM entries WHERE book_id = ? ORDER BY datetime(created_at) DESC, id DESC').all(bookId);
     return rows.map(parseEntry);
 }
 
@@ -252,6 +277,30 @@ function getStats() {
 
 function safeJsonParse(str, fallback) {
     try { return JSON.parse(str); } catch { return fallback; }
+}
+
+function parseBook(row) {
+    return {
+        ...row,
+        title: row.latest_entry_title || row.title,
+        author: cleanDisplayAuthor(row.author, row.platform),
+    };
+}
+
+function cleanDisplayAuthor(author, platform) {
+    if (!author || platform !== 'xiaohongshu') return author;
+    const withoutFollow = String(author).replace(/关注/g, '').replace(/\s+/g, ' ').trim();
+    return collapseRepeatedText(withoutFollow);
+}
+
+function collapseRepeatedText(text) {
+    const value = String(text || '').trim();
+    for (let size = 1; size <= Math.floor(value.length / 2); size++) {
+        if (value.length % size !== 0) continue;
+        const unit = value.slice(0, size);
+        if (unit.repeat(value.length / size) === value) return unit;
+    }
+    return value;
 }
 
 module.exports = {

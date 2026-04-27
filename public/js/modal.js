@@ -11,10 +11,13 @@ function openBookModal(bookId) {
         const book = res.data;
         const entries = book.entries || [];
         const platformLabel = book.platform || 'web';
+        const displayTitle = book.latest_entry_title || book.title || '无标题';
         
-        const coverHtml = book.cover_url
-            ? `<img alt="${escapeHtml(book.title)}" class="w-full h-full object-cover" src="${escapeHtml(book.cover_url)}" onerror="this.style.display='none'" />`
-            : `<div class="w-full h-full bg-surface flex items-center justify-center"><span class="material-symbols-outlined text-4xl text-outline-variant">auto_stories</span></div>`;
+        const coverPath = book.cover_local || book.cover_url;
+        const coverHtml = coverPath
+            ? `<img alt="${escapeHtml(displayTitle)}" class="w-full h-full object-cover" src="${escapeHtml(coverPath)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
+               <div class="w-full h-full bg-surface p-6 items-center justify-center" style="display:none"><span class="font-headline text-2xl text-on-surface text-center leading-tight">${escapeHtml(displayTitle)}</span></div>`
+            : `<div class="w-full h-full bg-surface p-6 flex items-center justify-center"><span class="font-headline text-2xl text-on-surface text-center leading-tight">${escapeHtml(displayTitle)}</span></div>`;
 
         content.innerHTML = `
 <!-- Left Column: Quick Info & Cover -->
@@ -23,7 +26,7 @@ function openBookModal(bookId) {
         ${coverHtml}
     </div>
     <div class="w-full space-y-4 text-center">
-        <h2 class="font-headline text-3xl md:text-3xl text-on-surface leading-tight tracking-tight">${escapeHtml(book.title || '无标题')}</h2>
+        <h2 class="font-headline text-3xl md:text-3xl text-on-surface leading-tight tracking-tight">${escapeHtml(displayTitle)}</h2>
         ${book.author ? `<p class="font-body text-lg text-on-surface-variant">${escapeHtml(book.author)}</p>` : ''}
         <div class="flex flex-wrap items-center justify-center gap-2 pt-4">
             <span class="inline-flex items-center px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container font-label text-sm">
@@ -81,7 +84,7 @@ function openBookModal(bookId) {
                     <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded bg-surface-container-high font-bold text-sm text-on-surface-variant">${i + 1}</div>
                     <div class="flex-1 min-w-0">
                         <div class="font-body font-medium text-sm text-on-surface truncate">${escapeHtml(e.title || e.url)}</div>
-                        <div class="text-xs text-on-surface-variant mt-1">${new Date(e.created_at).toLocaleDateString('en-US')}</div>
+                        <div class="text-xs text-on-surface-variant mt-1">${formatDateTimeMinute(e.created_at)}</div>
                     </div>
                 </div>`).join('')}
             </div>
@@ -95,6 +98,18 @@ function openBookModal(bookId) {
     });
 }
 
+function formatDateTimeMinute(value) {
+    if (!value) return '';
+    return new Date(value.replace(' ', 'T')).toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    });
+}
+
 function openEntryModal(entry) {
     const overlay = document.getElementById('modalOverlay');
     const content = document.getElementById('modalContent');
@@ -102,8 +117,9 @@ function openEntryModal(entry) {
     _openOverlay(overlay);
     
     const tags = Array.isArray(entry.tags) ? entry.tags : [];
-    const coverHtml = entry.cover_url
-        ? `<img alt="${escapeHtml(entry.title)}" class="w-full h-full object-cover" src="${escapeHtml(entry.cover_url)}" onerror="this.style.display='none'" />`
+    const entryCoverPath = entry.cover_local || entry.cover_url;
+    const coverHtml = entryCoverPath
+        ? `<img alt="${escapeHtml(entry.title)}" class="w-full h-full object-cover" src="${escapeHtml(entryCoverPath)}" onerror="this.style.display='none'" />`
         : `<div class="w-full h-full bg-surface flex items-center justify-center"><span class="material-symbols-outlined text-4xl text-outline-variant">description</span></div>`;
 
     content.innerHTML = `

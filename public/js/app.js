@@ -197,7 +197,7 @@ function renderCurrentView() {
 
 // ── Search ───────────────────────────────────────────────────────────────────
 async function handleSearch(query) {
-    query = query.trim();
+    query = sanitizeSearchQuery(query);
     if (!query) {
         setView('shelf');
         return;
@@ -212,6 +212,12 @@ async function handleSearch(query) {
     } catch (err) {
         showToast('搜索失败: ' + err.message, 'error');
     }
+}
+
+function sanitizeSearchQuery(query) {
+    const value = String(query || '').trim();
+    if (/^https:\/\/api\.kimi\.com\/coding\/?$/i.test(value)) return '';
+    return value;
 }
 
 // ── Quick-Add Bar (animated) ─────────────────────────────────────────────────
@@ -589,9 +595,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Search
     let searchTimer;
+    const searchInput = document.getElementById('searchInput');
+    searchInput.value = sanitizeSearchQuery(searchInput.value);
+    document.querySelectorAll('input[type="search"], input[name*="search" i]').forEach(input => {
+        if (input !== searchInput) input.value = sanitizeSearchQuery(input.value);
+    });
     document.getElementById('searchInput').addEventListener('input', e => {
+        const cleanQuery = sanitizeSearchQuery(e.target.value);
+        if (cleanQuery !== e.target.value.trim()) e.target.value = cleanQuery;
         clearTimeout(searchTimer);
-        searchTimer = setTimeout(() => handleSearch(e.target.value), 350);
+        searchTimer = setTimeout(() => handleSearch(cleanQuery), 350);
     });
 
     // Keyboard shortcut ⌘K
