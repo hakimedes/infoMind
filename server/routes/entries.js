@@ -8,6 +8,7 @@ const axios = require('axios');
 const logger = require('../utils/logger');
 const queries = require('../db/queries');
 const { parseUrl } = require('../services/parser');
+const { deriveZhihuMetadataFromText } = require('../services/parser/zhihu');
 const { classifyEntry } = require('../services/classifier');
 const { processBook } = require('../services/bookmaker');
 
@@ -55,6 +56,7 @@ async function downloadCover(coverUrl, sourceUrl) {
 router.post('/', async (req, res) => {
     let { url, note, category: manualCategory, tags } = req.body;
     if (!url) return res.status(400).json({ success: false, error: 'URL is required' });
+    const originalInput = url;
 
     // Extract actual URL if user pasted text like "标题 - 知乎 https://www.zhihu.com/..."
     const urlMatch = url.match(/(https?:\/\/[^\s]+)/);
@@ -76,6 +78,7 @@ router.post('/', async (req, res) => {
         // 1. Parse the URL
         const parsed = await parseUrl(url);
         const entryData = { ...parsed, url, note: note || null, tags: tags || [] };
+        applyZhihuSharedMetadata(entryData, originalInput, url);
 
         // 2. Classify with LLM (or fallback)
         if (!manualCategory) {
@@ -117,6 +120,16 @@ router.post('/', async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+
+function applyZhihuSharedMetadata(entryData, originalInput, url) {
+    if (entryData.platform !== 'zhihu') return;
+    const shared = deriveZhihuMetadataFromText(originalInput, url);
+    if (!shared) return;
+    if (!entryData.title || entryData.title === '知乎内容' || entryData.title === url) entryData.title = shared.title || entryData.title;
+    if (!entryData.author) entryData.author = shared.author || entryData.author;
+    if (!entryData.description) entryData.description = shared.description || entryData.description;
+    entryData.source_data = { ...(entryData.source_data || {}), ...(shared.source_data || {}) };
+}
 
 // GET /api/entries/search - Search entries
 router.get('/search', (req, res) => {

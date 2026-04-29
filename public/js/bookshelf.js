@@ -11,6 +11,38 @@ const PLATFORM_META = {
 };
 const PLATFORM_LABELS = Object.fromEntries(Object.entries(PLATFORM_META).map(([key, meta]) => [key, meta.label]));
 
+const CATEGORY_META = {
+    人工智能: { icon: 'memory', tone: '#5b6ee1' },
+    计算机科学: { icon: 'desktop_windows', tone: '#6b5bd6' },
+    心理学: { icon: 'psychology', tone: '#b94e83' },
+    哲学: { icon: 'auto_stories', tone: '#8b6f2a' },
+    历史: { icon: 'history_edu', tone: '#7b6a3d' },
+    自然科学: { icon: 'science', tone: '#00839b' },
+    数学: { icon: 'calculate', tone: '#2f69bf' },
+    经济与金融: { icon: 'paid', tone: '#17865d' },
+    商业与管理: { icon: 'business_center', tone: '#9b5a12' },
+    艺术与设计: { icon: 'palette', tone: '#b63d5e' },
+    音乐: { icon: 'music_note', tone: '#7650b5' },
+    影视与娱乐: { icon: 'movie', tone: '#0d7f95' },
+    文学与写作: { icon: 'edit_note', tone: '#2c8a62' },
+    政治与社会: { icon: 'public', tone: '#b33a32' },
+    法律: { icon: 'gavel', tone: '#775326' },
+    医学与健康: { icon: 'health_and_safety', tone: '#258a46' },
+    体育与健身: { icon: 'fitness_center', tone: '#b45d19' },
+    美食与烹饪: { icon: 'restaurant', tone: '#a67314' },
+    旅行与地理: { icon: 'travel_explore', tone: '#256fbd' },
+    游戏: { icon: 'stadia_controller', tone: '#734fb7' },
+    产品与技术: { icon: 'devices', tone: '#0877a8' },
+    教育: { icon: 'school', tone: '#a86614' },
+    工程与制造: { icon: 'engineering', tone: '#647080' },
+    生态与环境: { icon: 'eco', tone: '#2f8a45' },
+    其他: { icon: 'category', tone: '#727063' },
+};
+
+function getCategoryMeta(category) {
+    return CATEGORY_META[category] || { icon: 'folder', tone: '#727063' };
+}
+
 function getPlatformColor(platform) {
     const colors = { bilibili: '#00a1d6', youtube: '#ff0000', twitter: '#1d9bf0', xiaohongshu: '#ff2442', zhihu: '#0084ff', wechat: '#07c160', weibo: '#e6162d' };
     return colors[platform] || '#6b7280';
@@ -34,12 +66,16 @@ function renderBookshelf(booksData, categoriesData, container) {
     for (const cat of sections) {
         const section = document.createElement('section');
         section.dataset.category = cat.name;
+        const catMeta = getCategoryMeta(cat.name);
 
         section.innerHTML = `
-      <div class="flex items-baseline justify-between mb-8">
-        <h2 class="font-headline text-3xl text-on-surface flex items-center gap-2">
-            <span class="material-symbols-outlined">${escapeHtml(cat.icon || 'folder')}</span>
-            ${escapeHtml(cat.name)} <span class="text-sm text-on-surface-variant font-body ml-2">(${cat.books.length})</span>
+      <div class="flex items-center justify-between mb-8">
+        <h2 class="font-headline text-3xl text-on-surface flex items-center gap-3">
+            <span class="inline-flex w-10 h-10 items-center justify-center rounded-full border border-outline-variant/20 bg-surface-container-low shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]" style="color:${catMeta.tone};">
+                <span class="material-symbols-outlined text-[22px] leading-none">${escapeHtml(catMeta.icon)}</span>
+            </span>
+            <span>${escapeHtml(cat.name)}</span>
+            <span class="font-label text-xs text-on-surface-variant px-2 py-1 rounded-full bg-surface-container-high">${cat.books.length} 本</span>
         </h2>
       </div>
       <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-5 gap-y-8 shelf-row"></div>
@@ -255,3 +291,4 @@ window.renderTimeline = renderTimeline;
 window.renderSearchResults = renderSearchResults;
 window.buildBookCard = buildBookCard;
 window.escapeHtml = escapeHtml;
+window.getCategoryMeta = getCategoryMeta;

@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const logger = require('../utils/logger');
 const queries = require('../db/queries');
 const { parseUrl } = require('../services/parser');
+const { deriveZhihuMetadataFromText } = require('../services/parser/zhihu');
 const { classifyEntry } = require('../services/classifier');
 const { processBook } = require('../services/bookmaker');
 
@@ -55,6 +56,7 @@ router.post('/openclaw', async (req, res) => {
 
             const parsed = await parseUrl(url);
             const entryData = { ...parsed, url };
+            applyZhihuSharedMetadata(entryData, message || '', url);
 
             try {
                 const classification = await classifyEntry(entryData);
@@ -87,5 +89,15 @@ router.post('/openclaw', async (req, res) => {
         results
     });
 });
+
+function applyZhihuSharedMetadata(entryData, originalInput, url) {
+    if (entryData.platform !== 'zhihu') return;
+    const shared = deriveZhihuMetadataFromText(originalInput, url);
+    if (!shared) return;
+    if (!entryData.title || entryData.title === '知乎内容' || entryData.title === url) entryData.title = shared.title || entryData.title;
+    if (!entryData.author) entryData.author = shared.author || entryData.author;
+    if (!entryData.description) entryData.description = shared.description || entryData.description;
+    entryData.source_data = { ...(entryData.source_data || {}), ...(shared.source_data || {}) };
+}
 
 module.exports = router;

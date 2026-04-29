@@ -9,6 +9,17 @@ const HEADERS = {
     'Accept-Language': 'zh-CN,zh;q=0.9',
 };
 
+const BROWSER_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+    'Referer': 'https://www.zhihu.com/',
+};
+
+function withCookie(headers) {
+    return process.env.ZHIHU_COOKIE ? { ...headers, Cookie: process.env.ZHIHU_COOKIE } : headers;
+}
+
 async function zhihuParse(url) {
     // Determine content type from URL
     let contentType = 'article';
@@ -19,11 +30,7 @@ async function zhihuParse(url) {
 
     try {
         // Googlebot UA is the most reliable way to get server-rendered content from Zhihu
-        const response = await axios.get(url, {
-            headers: HEADERS,
-            timeout: 12000,
-            maxRedirects: 5,
-        });
+        const response = await fetchZhihuHtml(url);
 
         const html = response.data;
         const $ = cheerio.load(html);
@@ -86,6 +93,26 @@ async function zhihuParse(url) {
             };
         }
     }
+}
+
+async function fetchZhihuHtml(url) {
+    const attempts = [
+        withCookie(BROWSER_HEADERS),
+        withCookie(HEADERS),
+    ];
+    let lastErr;
+    for (const headers of attempts) {
+        try {
+            return await axios.get(url, {
+                headers,
+                timeout: 12000,
+                maxRedirects: 5,
+            });
+        } catch (err) {
+            lastErr = err;
+        }
+    }
+    throw lastErr;
 }
 
 function extractFromInitialData(data, contentType, url) {
@@ -168,4 +195,29 @@ function cleanTitle(title) {
     return title.replace(/\s*[-–—]\s*知乎\s*$/, '').trim();
 }
 
-module.exports = { zhihuParse };
+function deriveZhihuMetadataFromText(text, url) {
+    if (!text || !/zhihu\.com|知乎/i.test(text)) return null;
+    const escapedUrl = url ? String(url).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '';
+    let prefix = escapedUrl ? String(text).replace(new RegExp(escapedUrl + '.*$'), '') : String(text);
+    prefix = prefix.replace(/https?:\/\/[^\s"'<>]+/g, '').replace(/\s+/g, ' ').trim();
+    if (!prefix) return null;
+
+    const parts = prefix.split(/\s[-–—]\s/).map(p => p.trim()).filter(Boolean);
+    if (!parts.length) return null;
+
+    const title = cleanTitle(parts[0]);
+    const authorPart = parts.find(p => /的(回答|文章|想法|专栏)/.test(p)) || parts[1] || '';
+    const author = authorPart
+        .replace(/的(回答|文章|想法|专栏).*$/, '')
+        .replace(/\s*知乎\s*$/, '')
+        .trim();
+
+    return {
+        title: title || null,
+        author: author || null,
+        description: prefix,
+        source_data: { zhihu_shared_text: prefix },
+    };
+}
+
+module.exports = { zhihuParse, deriveZhihuMetadataFromText };

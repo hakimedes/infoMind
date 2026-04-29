@@ -6,7 +6,10 @@ const logger = require('../utils/logger');
 const KEYWORD_MAP = {
     '人工智能': ['ai', 'gpt', 'llm', '大模型', '机器学习', 'chatgpt', 'claude', 'gemini',
         '深度学习', '神经网络', 'openai', 'anthropic', '人工智能', 'transformer',
-        'stable diffusion', 'midjourney', '算法', '训练'],
+        'stable diffusion', 'midjourney', '算法', '训练', 'rag', '上下文', 'token',
+        '向量', 'embedding', 'agent', '智能体', '推理', '模型', '提示词', 'prompt',
+        '检索增强', '多模态', '生成式', 'aigc', 'openclaw', 'codex', 'ai agent',
+        'coding agent'],
     '计算机科学': ['编程', '代码', 'python', 'javascript', 'java', 'rust', 'golang',
         '软件', '开发', 'github', 'linux', '数据库', 'api', '架构', '后端', '前端'],
     '心理学': ['心理', '认知', '情绪', '焦虑', '抑郁', '行为', '冥想', '压力', '心理咨询'],
@@ -24,25 +27,30 @@ const KEYWORD_MAP = {
 };
 
 async function classifyEntry(entry) {
+    const fallback = keywordClassify(entry);
+
     // Try LLM first
     try {
         const result = await llmClassify(entry);
+        if ((!result.category || result.category === '其他') && fallback.category !== '其他') {
+            return mergeClassification(fallback, result);
+        }
         if (result.category && result.category !== '其他') return result;
     } catch (err) {
         logger.debug(`LLM classify failed: ${err.message}, using keyword fallback`);
     }
 
     // Keyword fallback
-    return keywordClassify(entry);
+    return fallback;
 }
 
 function keywordClassify(entry) {
-    const text = [entry.title, entry.description, entry.author].join(' ').toLowerCase();
+    const text = buildClassifyText(entry);
     let bestCategory = '其他';
     let bestScore = 0;
 
     for (const [cat, keywords] of Object.entries(KEYWORD_MAP)) {
-        const score = keywords.filter(kw => text.includes(kw.toLowerCase())).length;
+        const score = keywords.reduce((sum, kw) => keywordMatches(text, kw) ? sum + getKeywordWeight(kw.toLowerCase()) : sum, 0);
         if (score > bestScore) {
             bestScore = score;
             bestCategory = cat;
@@ -52,9 +60,64 @@ function keywordClassify(entry) {
     return {
         category: bestCategory,
         sub_category: null,
-        tags: [],
+        tags: bestCategory === '其他' ? [] : extractMatchedTags(text, KEYWORD_MAP[bestCategory]),
         summary: null,
     };
 }
 
-module.exports = { classifyEntry };
+function buildClassifyText(entry) {
+    const sourceData = entry.source_data && typeof entry.source_data === 'object'
+        ? [
+            entry.source_data.title,
+            entry.source_data.description,
+            entry.source_data.author,
+            entry.source_data.zhihu_shared_text,
+        ].filter(Boolean).join(' ')
+        : '';
+    return [
+        entry.title,
+        entry.description,
+        entry.summary,
+        entry.note,
+        entry.author,
+        Array.isArray(entry.tags) ? entry.tags.join(' ') : entry.tags,
+        sourceData,
+    ].filter(Boolean).join(' ').toLowerCase();
+}
+
+function getKeywordWeight(keyword) {
+    if (['llm', 'gpt', 'rag', '大模型', '人工智能', '机器学习', 'chatgpt', 'openai', 'agent', '智能体', 'openclaw', 'codex'].includes(keyword)) {
+        return 3;
+    }
+    if (['token', '上下文', 'embedding', '向量', '模型', 'prompt', '提示词'].includes(keyword)) {
+        return 2;
+    }
+    return 1;
+}
+
+function extractMatchedTags(text, keywords = []) {
+    return keywords
+        .filter(kw => keywordMatches(text, kw))
+        .slice(0, 5);
+}
+
+function keywordMatches(text, keyword) {
+    const kw = keyword.toLowerCase();
+    if (/^[a-z0-9+#.-]+$/i.test(kw)) {
+        const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i').test(text);
+    }
+    return text.includes(kw);
+}
+
+function mergeClassification(fallback, result = {}) {
+    return {
+        ...result,
+        category: fallback.category,
+        sub_category: result.sub_category || fallback.sub_category,
+        tags: result.tags?.length ? result.tags : fallback.tags,
+        summary: result.summary || fallback.summary,
+    };
+}
+
+module.exports = { classifyEntry, keywordClassify };

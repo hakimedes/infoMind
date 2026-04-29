@@ -14,7 +14,13 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Static files (Web UI)
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, '../public'), {
+    setHeaders(res, filePath) {
+        if (filePath.endsWith('.html') || filePath.endsWith('.js')) {
+            res.setHeader('Cache-Control', 'no-store');
+        }
+    }
+}));
 app.use('/covers', express.static(path.join(__dirname, '../data/covers')));
 
 // API Routes

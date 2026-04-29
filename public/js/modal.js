@@ -11,23 +11,23 @@ function openBookModal(bookId) {
         const book = res.data;
         const entries = book.entries || [];
         const platformLabel = book.platform || 'web';
-        const displayTitle = book.latest_entry_title || book.title || '无标题';
+        const initialEntry = entries[0] || book;
+        const displayTitle = initialEntry.title || book.latest_entry_title || book.title || '无标题';
         
-        const coverPath = book.cover_local || book.cover_url;
-        const coverHtml = coverPath
-            ? `<img alt="${escapeHtml(displayTitle)}" class="w-full h-full object-cover" src="${escapeHtml(coverPath)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
-               <div class="w-full h-full bg-surface p-6 items-center justify-center" style="display:none"><span class="font-headline text-2xl text-on-surface text-center leading-tight">${escapeHtml(displayTitle)}</span></div>`
-            : `<div class="w-full h-full bg-surface p-6 flex items-center justify-center"><span class="font-headline text-2xl text-on-surface text-center leading-tight">${escapeHtml(displayTitle)}</span></div>`;
+        const coverHtml = buildModalCover(initialEntry, displayTitle);
+
+        const openOriginalHref = initialEntry.url || entries[0]?.url || '#';
+        const openOriginalDisabled = openOriginalHref === '#';
 
         content.innerHTML = `
 <!-- Left Column: Quick Info & Cover -->
 <div class="w-full md:w-1/3 bg-surface-container-low p-8 flex flex-col items-center justify-center border-r border-outline-variant/10">
-    <div class="w-48 md:w-64 aspect-[2/3] bg-surface-container-high rounded-lg overflow-hidden shadow-sm mb-8 relative border border-outline-variant/10">
+    <div id="bookModalCover" class="w-48 md:w-64 aspect-[2/3] bg-surface-container-high rounded-lg overflow-hidden shadow-sm mb-8 relative border border-outline-variant/10">
         ${coverHtml}
     </div>
     <div class="w-full space-y-4 text-center">
-        <h2 class="font-headline text-3xl md:text-3xl text-on-surface leading-tight tracking-tight">${escapeHtml(displayTitle)}</h2>
-        ${book.author ? `<p class="font-body text-lg text-on-surface-variant">${escapeHtml(book.author)}</p>` : ''}
+        <h2 id="bookModalTitle" class="font-headline text-3xl md:text-3xl text-on-surface leading-tight tracking-tight">${escapeHtml(displayTitle)}</h2>
+        <p id="bookModalAuthor" class="font-body text-lg text-on-surface-variant ${initialEntry.author || book.author ? '' : 'hidden'}">${escapeHtml(initialEntry.author || book.author || '')}</p>
         <div class="flex flex-wrap items-center justify-center gap-2 pt-4">
             <span class="inline-flex items-center px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container font-label text-sm">
                 ${escapeHtml(book.category)}
@@ -41,9 +41,9 @@ function openBookModal(bookId) {
         </div>
     </div>
     <div class="w-full mt-12 space-y-3">
-        ${entries[0] ? `<a href="${escapeHtml(entries[0].url)}" target="_blank" class="w-full flex items-center justify-center gap-2 bg-primary text-on-primary py-3 px-6 rounded-lg font-body font-medium transition-colors hover:bg-primary-container">
+        <a id="bookModalOpenOriginal" href="${escapeHtml(openOriginalHref)}" target="_blank" class="w-full flex items-center justify-center gap-2 bg-primary text-on-primary py-3 px-6 rounded-lg font-body font-medium transition-colors hover:bg-primary-container ${openOriginalDisabled ? 'pointer-events-none opacity-50' : ''}">
             <span class="material-symbols-outlined">menu_book</span> Open Original
-        </a>` : ''}
+        </a>
         <button onclick="confirmDeleteBook('${bookId}')" class="w-full flex items-center justify-center gap-2 bg-transparent text-error py-3 px-6 rounded-lg font-body font-medium transition-colors hover:bg-error-container hover:text-on-error-container">
             <span class="material-symbols-outlined">delete</span> Delete Book
         </button>
@@ -78,23 +78,67 @@ function openBookModal(bookId) {
         ${entries.length > 0 ? `
         <section class="pt-8 border-t border-outline-variant/20">
             <h3 class="font-headline text-2xl text-on-surface tracking-tight mb-6">Contained Entries</h3>
-            <div class="space-y-4">
+            <div class="space-y-4" id="containedEntriesList">
                 ${entries.map((e, i) => `
-                <div class="flex items-start gap-4 p-4 rounded-xl border border-outline-variant/20 bg-surface-container-lowest hover:bg-surface-container-low transition-colors">
-                    <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded bg-surface-container-high font-bold text-sm text-on-surface-variant">${i + 1}</div>
-                    <div class="flex-1 min-w-0">
-                        <div class="font-body font-medium text-sm text-on-surface truncate">${escapeHtml(e.title || e.url)}</div>
-                        <div class="text-xs text-on-surface-variant mt-1">${formatDateTimeMinute(e.created_at)}</div>
-                    </div>
-                </div>`).join('')}
+                <button type="button" data-entry-index="${i}" class="contained-entry w-full text-left flex items-start gap-4 p-4 rounded-xl border ${i === 0 ? 'active border-primary/40 bg-surface-container-low' : 'border-outline-variant/20 bg-surface-container-lowest'} hover:bg-surface-container-low transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40">
+                    <span class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded bg-surface-container-high font-bold text-sm text-on-surface-variant">${i + 1}</span>
+                    <span class="flex-1 min-w-0">
+                        <span class="block font-body font-medium text-sm text-on-surface truncate">${escapeHtml(e.title || e.url)}</span>
+                        <span class="block text-xs text-on-surface-variant mt-1">${formatDateTimeMinute(e.created_at)}</span>
+                    </span>
+                </button>`).join('')}
             </div>
         </section>
         ` : ''}
     </div>
 </div>
         `;
+
+        bindBookEntryInteractions(entries, book);
     }).catch(err => {
         content.innerHTML = `<div style="padding:40px;text-align:center;color:#ba1a1a">加载失败: ${escapeHtml(err.message)}</div>`;
+    });
+}
+
+function buildModalCover(item, fallbackTitle) {
+    const title = item?.title || fallbackTitle || '无标题';
+    const coverPath = item?.cover_local || item?.cover_url;
+    return coverPath
+        ? `<img alt="${escapeHtml(title)}" class="w-full h-full object-cover" src="${escapeHtml(coverPath)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
+               <div class="w-full h-full bg-surface p-6 items-center justify-center" style="display:none"><span class="font-headline text-2xl text-on-surface text-center leading-tight">${escapeHtml(title)}</span></div>`
+        : `<div class="w-full h-full bg-surface p-6 flex items-center justify-center"><span class="font-headline text-2xl text-on-surface text-center leading-tight">${escapeHtml(title)}</span></div>`;
+}
+
+function bindBookEntryInteractions(entries, book) {
+    const list = document.getElementById('containedEntriesList');
+    if (!list) return;
+
+    const selectEntry = (entry, button) => {
+        const title = entry.title || entry.url || '无标题';
+        const author = entry.author || book.author || '';
+        document.getElementById('bookModalCover').innerHTML = buildModalCover(entry, title);
+        document.getElementById('bookModalTitle').textContent = title;
+        const authorEl = document.getElementById('bookModalAuthor');
+        authorEl.textContent = author;
+        authorEl.classList.toggle('hidden', !author);
+        const openBtn = document.getElementById('bookModalOpenOriginal');
+        openBtn.href = entry.url || '#';
+        openBtn.classList.toggle('pointer-events-none', !entry.url);
+        openBtn.classList.toggle('opacity-50', !entry.url);
+        list.querySelectorAll('.contained-entry').forEach(el => {
+            el.classList.remove('active', 'border-primary/40', 'bg-surface-container-low');
+            el.classList.add('border-outline-variant/20', 'bg-surface-container-lowest');
+        });
+        button?.classList.remove('border-outline-variant/20', 'bg-surface-container-lowest');
+        button?.classList.add('active', 'border-primary/40', 'bg-surface-container-low');
+    };
+
+    list.querySelectorAll('.contained-entry').forEach(button => {
+        const entry = entries[Number(button.dataset.entryIndex)];
+        button.addEventListener('click', () => selectEntry(entry, button));
+        button.addEventListener('dblclick', () => {
+            if (entry?.url) window.open(entry.url, '_blank', 'noopener');
+        });
     });
 }
 

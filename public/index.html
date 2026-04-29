@@ -219,110 +219,71 @@ tailwind.config = {
     <!-- Dashboard View -->
     <div id="dashboardContainer" class="hidden flex-1 px-6 md:px-10 pb-12 max-w-7xl mx-auto w-full flex flex-col gap-8 md:gap-12 mt-6 md:mt-0">
         <!-- Header with Title and Time Filter -->
-        <div class="flex justify-between items-center w-full mb-2">
-            <h2 class="font-headline text-3xl font-medium text-on-surface tracking-tight">Knowledge Analytics</h2>
-            <select id="dashboardTimeFilter" class="bg-surface-container-high border-b border-primary border-b-[1.5px] border-x-0 border-t-0 focus:border-primary-container text-on-surface text-sm rounded-t-sm py-2 px-3 outline-none">
-                <option value="1w">近1周</option>
-                <option value="1m" selected>近1月</option>
-                <option value="3m">近3月</option>
-                <option value="1y">今年</option>
-            </select>
+        <div class="flex flex-col xl:flex-row xl:justify-between xl:items-end w-full gap-4 mb-2">
+            <div>
+                <h2 class="font-headline text-4xl font-medium text-on-surface tracking-tight">Attention Map</h2>
+                <p class="font-body text-sm text-on-surface-variant mt-1">把碎片化收藏折成一张认知带宽地图。</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <select id="dashboardTimeFilter" class="bg-surface-container-high border-b border-primary border-b-[1.5px] border-x-0 border-t-0 focus:border-primary-container text-on-surface text-sm rounded-t-sm py-2 px-3 outline-none">
+                    <option value="1w">近1周</option>
+                    <option value="1m" selected>近30天</option>
+                    <option value="3m">近3月</option>
+                    <option value="1y">近1年</option>
+                </select>
+                <select id="dashboardCategoryFilter" class="bg-surface-container-high border-b border-primary border-b-[1.5px] border-x-0 border-t-0 focus:border-primary-container text-on-surface text-sm rounded-t-sm py-2 px-3 outline-none">
+                    <option value="">全部类别</option>
+                </select>
+                <select id="dashboardPlatformFilter" class="bg-surface-container-high border-b border-primary border-b-[1.5px] border-x-0 border-t-0 focus:border-primary-container text-on-surface text-sm rounded-t-sm py-2 px-3 outline-none">
+                    <option value="">全部来源</option>
+                    <option value="wechat">微信公众号</option>
+                    <option value="xiaohongshu">小红书</option>
+                    <option value="bilibili">Bilibili</option>
+                    <option value="twitter">X</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="zhihu">知乎</option>
+                    <option value="web">网页</option>
+                </select>
+            </div>
         </div>
 <!-- Bento Grid Layout -->
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
 <!-- Left Side: Line Chart (Acquisition Frequency) -->
-<section class="lg:col-span-7 bg-surface-container-lowest p-6 md:p-8 shadow-[0_4px_32px_rgba(28,28,22,0.04)] relative">
+<section class="lg:col-span-4 h-[640px] bg-surface-container-lowest p-6 md:p-8 shadow-[0_18px_60px_rgba(28,28,22,0.07)] border border-outline-variant/15 rounded-lg relative overflow-hidden flex flex-col">
 <!-- Subtle background layer for depth -->
-<div class="absolute inset-0 bg-surface-container-low -z-10 translate-y-2 translate-x-2"></div>
+<div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent"></div>
 <div class="flex justify-between items-end mb-8">
 <div>
-<h3 class="font-body text-lg font-medium text-on-surface mb-1">Acquisition Frequency</h3>
-<p class="font-label text-sm text-on-surface opacity-60">Volume of new entries over the last 30 days.</p>
+<h3 class="font-body text-lg font-semibold text-on-surface mb-1">Capture Trend</h3>
+<p id="dashboardTrendSubtitle" class="font-label text-sm text-on-surface opacity-60">基于真实收录数据</p>
 </div>
 <div class="flex items-center gap-2">
-<span class="font-label text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-sm">+14% vs last mo</span>
+<span id="dashboardTrendDelta" class="font-label text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-sm">--</span>
 </div>
 </div>
-<!-- Chart Container (CSS Mockup of a line chart) -->
-<div class="h-64 w-full relative flex items-end pt-4">
-<!-- Grid Lines -->
-<div class="absolute inset-0 flex flex-col justify-between pt-4 pb-6 z-0">
-<div class="border-b border-surface-variant w-full h-0"></div>
-<div class="border-b border-surface-variant w-full h-0"></div>
-<div class="border-b border-surface-variant w-full h-0"></div>
-<div class="border-b border-surface-variant w-full h-0"></div>
-<div class="border-b border-surface-variant w-full h-0"></div>
-</div>
-<!-- Data Line (SVG representation for cleanliness) -->
-<svg class="absolute inset-0 h-full w-full pt-4 pb-6 z-10" preserveaspectratio="none" viewbox="0 0 100 100">
-<!-- Gradient Fill -->
-<defs>
-<lineargradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
-<stop class="text-primary-container" offset="0%" stop-color="currentColor" stop-opacity="0.2"></stop>
-<stop class="text-primary-container" offset="100%" stop-color="currentColor" stop-opacity="0"></stop>
-</lineargradient>
-</defs>
-<path d="M0,80 L10,75 L20,85 L30,60 L40,65 L50,40 L60,50 L70,30 L80,35 L90,15 L100,20 L100,100 L0,100 Z" fill="url(#chartGradient)"></path>
-<!-- Line -->
-<polyline class="text-primary" fill="none" points="0,80 10,75 20,85 30,60 40,65 50,40 60,50 70,30 80,35 90,15 100,20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></polyline>
-<!-- Data Points -->
-<circle class="text-surface" cx="50" cy="40" fill="currentColor" r="1.5" stroke="currentColor" style="stroke: #d97757; stroke-width: 1px;"></circle>
-<circle class="text-surface" cx="70" cy="30" fill="currentColor" r="1.5" stroke="currentColor" style="stroke: #d97757; stroke-width: 1px;"></circle>
-<circle class="text-surface" cx="90" cy="15" fill="currentColor" r="1.5" stroke="currentColor" style="stroke: #d97757; stroke-width: 1px;"></circle>
-</svg>
-<!-- X-Axis Labels -->
-<div class="absolute bottom-0 w-full flex justify-between text-[10px] font-label text-on-surface opacity-50 px-1">
-<span>01 Oct</span>
-<span>08 Oct</span>
-<span>15 Oct</span>
-<span>22 Oct</span>
-<span>30 Oct</span>
-</div>
-</div>
+<div id="dashboardTrendChart" class="flex-1 min-h-0 w-full relative flex items-end pt-4"></div>
 </section>
 <!-- Right Side: Heatmap (Knowledge Density) -->
-<section class="lg:col-span-5 bg-surface-container-low p-6 md:p-8 rounded-sm">
-<div class="mb-6">
-<h3 class="font-body text-lg font-medium text-on-surface mb-1">Knowledge Density</h3>
-<p class="font-label text-sm text-on-surface opacity-60">Distribution by conceptual category.</p>
+<section class="lg:col-span-8 h-[640px] bg-[#10110f] p-5 md:p-7 rounded-lg border border-white/10 shadow-[0_24px_80px_rgba(28,28,22,0.16)] relative overflow-hidden flex flex-col">
+<div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
+<div class="mb-5 flex items-end justify-between gap-4 shrink-0">
+<div>
+<h3 class="font-body text-lg font-semibold text-white mb-1">Market Treemap</h3>
+<p id="dashboardHeatmapSubtitle" class="font-label text-sm text-white/55">按分类、平台与作者真实分布</p>
 </div>
-<!-- CSS Heatmap / Treemap Mockup -->
-<div class="w-full aspect-square grid grid-cols-4 grid-rows-4 gap-2">
-<!-- Philosophy (Large, High Density) -->
-<div class="col-span-2 row-span-2 bg-secondary-container rounded-sm p-4 flex flex-col justify-between group hover:bg-secondary-fixed transition-colors">
-<span class="font-label text-xs font-medium text-on-secondary-container opacity-80 group-hover:opacity-100">Philosophy</span>
-<span class="font-headline text-2xl text-on-secondary-container">34%</span>
+<span class="font-label text-[10px] uppercase tracking-[0.24em] text-white/35">area = captures</span>
 </div>
-<!-- Science (Medium, Medium Density) -->
-<div class="col-span-2 row-span-1 bg-surface-container-high rounded-sm p-3 flex flex-col justify-between group hover:bg-surface-variant transition-colors border-b border-outline-variant/10">
-<span class="font-label text-xs font-medium text-on-surface opacity-70 group-hover:opacity-100">Science</span>
-<span class="font-body text-sm font-medium text-on-surface">21%</span>
+<div id="dashboardHeatmap" class="w-full flex-1 min-h-0 relative rounded-md bg-[#171814] overflow-hidden"></div>
+<div id="dashboardHeatmapTooltip" class="hidden fixed z-[200] max-w-[320px] rounded-lg bg-[#fcf9ef] text-on-surface border border-outline-variant/30 shadow-[0_24px_80px_rgba(0,0,0,0.22)] p-4 pointer-events-none"></div>
+<div class="mt-5 flex items-center justify-between text-xs font-label text-white/45 shrink-0">
+<span>Category → Platform / Author</span>
+<div class="flex items-center gap-1.5">
+<span class="w-2.5 h-2.5 rounded-full bg-[#8f1d2d]"></span>
+<span class="w-2.5 h-2.5 rounded-full bg-[#07543e]"></span>
+<span class="w-2.5 h-2.5 rounded-full bg-[#07556d]"></span>
+<span class="w-2.5 h-2.5 rounded-full bg-[#2f3339]"></span>
 </div>
-<!-- History (Medium) -->
-<div class="col-span-1 row-span-2 bg-primary-container/20 rounded-sm p-3 flex flex-col justify-between group hover:bg-primary-container/30 transition-colors">
-<span class="font-label text-xs font-medium text-on-primary-container opacity-80 group-hover:opacity-100 truncate">History</span>
-<span class="font-body text-sm font-medium text-on-primary-container">18%</span>
-</div>
-<!-- Tech (Small) -->
-<div class="col-span-1 row-span-1 bg-surface-container-high rounded-sm p-2 flex flex-col justify-between group hover:bg-surface-variant transition-colors">
-<span class="font-label text-[10px] font-medium text-on-surface opacity-70 truncate">Tech</span>
-<span class="font-body text-xs font-medium text-on-surface">12%</span>
-</div>
-<!-- Literature (Small) -->
-<div class="col-span-2 row-span-1 bg-surface-container-lowest rounded-sm p-3 flex flex-col justify-between group hover:bg-surface-container-high transition-colors border-b border-outline-variant/20">
-<span class="font-label text-xs font-medium text-on-surface opacity-70 group-hover:opacity-100">Literature</span>
-<span class="font-body text-sm font-medium text-on-surface">9%</span>
-</div>
-<!-- Art (Smallest) -->
-<div class="col-span-1 row-span-1 bg-surface-container rounded-sm p-2 flex flex-col justify-between group hover:bg-surface-variant transition-colors">
-<span class="font-label text-[10px] font-medium text-on-surface opacity-70 truncate">Art</span>
-<span class="font-body text-xs font-medium text-on-surface">6%</span>
-</div>
-</div>
-<div class="mt-6 flex items-center justify-between text-xs font-label text-on-surface opacity-60">
-<span>Low Density</span>
-<div class="flex-1 mx-4 h-1 bg-gradient-to-r from-surface-container to-secondary-container rounded-full"></div>
-<span>High Density</span>
+<span>Hover for notes</span>
 </div>
 </section>
 </div>
@@ -412,12 +373,12 @@ tailwind.config = {
 
 <div id="toastContainer" class="toast-container"></div>
 
-<script src="/js/api.js"></script>
-<script src="/js/bookshelf.js"></script>
-<script src="/js/modal.js"></script>
-<script src="/js/settings.js"></script>
+<script src="/js/api.js?v=20260429-dashboard-layout"></script>
+<script src="/js/bookshelf.js?v=20260429-dashboard-layout"></script>
+<script src="/js/modal.js?v=20260429-dashboard-layout"></script>
+<script src="/js/settings.js?v=20260429-dashboard-layout"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
-<script src="/js/app.js"></script>
+<script src="/js/app.js?v=20260429-dashboard-layout"></script>
 
 <script>
     // Polyfill icon toggling for setting page

@@ -13,6 +13,21 @@ let state = {
 
 // Apple-style spring ease
 const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+const dashboardStatsCache = new Map();
+let dashboardRenderSeq = 0;
+let dashboardResizeObserver = null;
+
+const DASHBOARD_PLATFORM_META = {
+    xiaohongshu: { label: '小红书', color: '#ff2442', logo: 'https://www.xiaohongshu.com/favicon.ico' },
+    wechat: { label: '微信公众号', color: '#07c160', logo: 'https://mp.weixin.qq.com/favicon.ico' },
+    bilibili: { label: 'Bilibili', color: '#00a1d6', logo: 'https://www.bilibili.com/favicon.ico' },
+    twitter: { label: 'X', color: '#111111', logo: 'https://x.com/favicon.ico' },
+    youtube: { label: 'YouTube', color: '#ff0033', logo: 'https://www.youtube.com/favicon.ico' },
+    zhihu: { label: '知乎', color: '#0084ff', logo: 'https://static.zhihu.com/heifetz/favicon.ico' },
+    weibo: { label: '微博', color: '#e6162d', logo: 'https://weibo.com/favicon.ico' },
+    web: { label: '网页', color: '#64748b', logo: '' },
+};
+let viewTransitionSeq = 0;
 
 // ── Animation Helpers ────────────────────────────────────────────────────────
 // These use inline styles + rAF so they work regardless of Tailwind's display:none
@@ -69,6 +84,7 @@ async function loadData() {
         state.categories = catRes.data;
         state.allBooks = booksRes.books || [];
         renderFilterPills(state.categories, state.allBooks);
+        renderDashboardFilterOptions(state.categories);
         renderCurrentView();
         updateStatsBar(statsRes.data);
     } catch (err) {
@@ -78,19 +94,39 @@ async function loadData() {
     }
 }
 
+function renderDashboardFilterOptions(categories) {
+    const select = document.getElementById('dashboardCategoryFilter');
+    if (!select) return;
+    const current = select.value;
+    select.innerHTML = '<option value="">全部类别</option>';
+    for (const cat of categories || []) {
+        const option = document.createElement('option');
+        option.value = cat.name;
+        option.textContent = cat.name;
+        select.appendChild(option);
+    }
+    select.value = [...select.options].some(option => option.value === current) ? current : '';
+}
+
 // ── Filter Pills ─────────────────────────────────────────────────────────────
 function renderFilterPills(categories, books) {
     const container = document.getElementById('filterCategories');
     const usedCategories = new Set(books.map(b => b.category));
 
-    container.innerHTML = '<button class="px-4 py-2 rounded-full whitespace-nowrap font-label text-sm bg-primary text-on-primary filter-pill active" data-category="">全部</button>';
+    container.innerHTML = `
+        <button class="px-4 py-2 rounded-full whitespace-nowrap font-label text-sm bg-primary text-on-primary filter-pill active inline-flex items-center gap-1.5" data-category="">
+            <span class="material-symbols-outlined text-[16px] leading-none">grid_view</span>
+            <span>全部</span>
+        </button>
+    `;
 
     for (const cat of categories) {
         if (!usedCategories.has(cat.name)) continue;
         const btn = document.createElement('button');
-        btn.className = 'px-4 py-2 rounded-full whitespace-nowrap font-label text-sm bg-surface border border-outline-variant/30 text-on-surface hover:bg-surface-container-highest filter-pill';
+        const meta = window.getCategoryMeta ? window.getCategoryMeta(cat.name) : { icon: 'folder' };
+        btn.className = 'px-4 py-2 rounded-full whitespace-nowrap font-label text-sm bg-surface border border-outline-variant/30 text-on-surface hover:bg-surface-container-highest filter-pill inline-flex items-center gap-1.5';
         btn.dataset.category = cat.name;
-        btn.innerHTML = `${escapeHtml(cat.name)}`;
+        btn.innerHTML = `<span class="material-symbols-outlined text-[16px] leading-none">${escapeHtml(meta.icon)}</span><span>${escapeHtml(cat.name)}</span>`;
         btn.addEventListener('click', () => setCategory(cat.name, btn));
         container.appendChild(btn);
     }
@@ -104,9 +140,9 @@ function renderFilterPills(categories, books) {
 function setCategory(category, btn) {
     state.category = category;
     document.querySelectorAll('.filter-pill').forEach(p => {
-        p.className = 'px-4 py-2 rounded-full whitespace-nowrap font-label text-sm bg-surface border border-outline-variant/30 text-on-surface hover:bg-surface-container-highest filter-pill';
+        p.className = 'px-4 py-2 rounded-full whitespace-nowrap font-label text-sm bg-surface border border-outline-variant/30 text-on-surface hover:bg-surface-container-highest filter-pill inline-flex items-center gap-1.5';
     });
-    btn.className = 'px-4 py-2 rounded-full whitespace-nowrap font-label text-sm bg-primary text-on-primary filter-pill active';
+    btn.className = 'px-4 py-2 rounded-full whitespace-nowrap font-label text-sm bg-primary text-on-primary filter-pill active inline-flex items-center gap-1.5';
     if (state.view === 'search') setView('shelf');
     else renderCurrentView();
 }
@@ -122,6 +158,7 @@ const VIEW_MAP = {
 function setView(view) {
     const prevView = state.view;
     state.view = view;
+    const transitionSeq = ++viewTransitionSeq;
 
     // Update active styles in side nav
     const setActive = (el, isActive) => {
@@ -164,6 +201,7 @@ function setView(view) {
 
     // Fade out old panel
     animateOut(oldEl, { duration: 150, toY: -4 }).then(() => {
+        if (transitionSeq !== viewTransitionSeq || state.view !== view) return;
         // Fade in new panel
         animateIn(newEl, { duration: 280, fromY: 10 });
         renderCurrentView();
@@ -189,10 +227,636 @@ function renderCurrentView() {
         const params = { limit: 1000, sort: state.sort };
         if (state.category) params.category = state.category;
         api.listEntries(params).then(res => {
+            if (state.view !== 'timeline') return;
             renderTimeline(res.entries, document.getElementById('timelineContainer'));
             initTimelinePicker();
         });
+    } else if (state.view === 'dashboard') {
+        renderDashboard();
     }
+}
+
+async function renderDashboard() {
+    const range = document.getElementById('dashboardTimeFilter')?.value || '1m';
+    const category = document.getElementById('dashboardCategoryFilter')?.value || '';
+    const platform = document.getElementById('dashboardPlatformFilter')?.value || '';
+    const chartEl = document.getElementById('dashboardTrendChart');
+    const heatmapEl = document.getElementById('dashboardHeatmap');
+    if (!chartEl || !heatmapEl) return;
+
+    const seq = ++dashboardRenderSeq;
+    const cacheKey = `${range}:${category || '*'}:${platform || '*'}`;
+    if (dashboardStatsCache.has(cacheKey)) {
+        renderDashboardData(dashboardStatsCache.get(cacheKey));
+    } else {
+        chartEl.innerHTML = '<div class="h-full w-full flex items-center justify-center text-sm text-on-surface-variant">加载真实数据中...</div>';
+        heatmapEl.innerHTML = '<div class="absolute inset-0 flex items-center justify-center text-sm text-white/50">正在重排注意力矩阵...</div>';
+    }
+
+    try {
+        const res = await api.getAdvancedStats({ range, category, platform });
+        if (seq !== dashboardRenderSeq) return;
+        let data = normalizeDashboardStats(res.data || {}, range);
+        if (needsClientTreemapRebuild(data)) {
+            data = await buildDashboardStatsFromEntries({ range, category, platform, baseData: data });
+            if (seq !== dashboardRenderSeq) return;
+        }
+        dashboardStatsCache.set(cacheKey, data);
+        renderDashboardData(data);
+    } catch (err) {
+        if (seq !== dashboardRenderSeq) return;
+        chartEl.innerHTML = `<div class="h-full w-full flex items-center justify-center text-sm text-error">洞察数据加载失败：${escapeHtml(err.message)}</div>`;
+        heatmapEl.innerHTML = '<div class="absolute inset-0 flex items-center justify-center rounded-sm bg-[#171814] text-sm text-white/45">暂无数据</div>';
+    }
+}
+
+function needsClientTreemapRebuild(data) {
+    const heatmap = data?.heatmap || [];
+    if (!heatmap.length) return false;
+    return !heatmap.some(cat => Array.isArray(cat.children) && cat.children.length > 0);
+}
+
+async function buildDashboardStatsFromEntries({ range, category, platform, baseData }) {
+    const res = await api.listEntries({ limit: 1000, sort: 'created_at' });
+    const days = ({ '1w': 7, '1m': 30, '3m': 90, '1y': 365 })[range] || 30;
+    const start = new Date();
+    start.setDate(start.getDate() - (days - 1));
+    start.setHours(0, 0, 0, 0);
+    const rows = (res.entries || []).filter(entry => {
+        const createdAt = new Date(String(entry.created_at || '').replace(' ', 'T'));
+        if (Number.isNaN(createdAt.getTime()) || createdAt < start) return false;
+        if (category && entry.category !== category) return false;
+        if (platform && entry.platform !== platform) return false;
+        return true;
+    });
+    const heatmap = buildClientTreemapHeatmap(rows);
+    const trend = buildClientTrend(rows, start, days);
+    const platforms = [...rows.reduce((map, entry) => {
+        const key = entry.platform || 'web';
+        map.set(key, (map.get(key) || 0) + 1);
+        return map;
+    }, new Map()).entries()].map(([name, count]) => ({ platform: name, count })).sort((a, b) => b.count - a.count);
+
+    return {
+        ...baseData,
+        range,
+        days,
+        trend,
+        heatmap,
+        platforms,
+        summary: {
+            ...baseData.summary,
+            total_entries: rows.length,
+            active_days: trend.filter(d => d.count > 0).length,
+            top_category: heatmap[0]?.name || null,
+        },
+    };
+}
+
+function buildClientTreemapHeatmap(rows) {
+    const categoryMap = new Map();
+    for (const entry of rows) {
+        const categoryName = entry.category || '其他';
+        if (!categoryMap.has(categoryName)) {
+            const meta = window.getCategoryMeta ? window.getCategoryMeta(categoryName) : { icon: 'category', tone: '#727063' };
+            categoryMap.set(categoryName, {
+                name: categoryName,
+                count: 0,
+                percent: 0,
+                basis: 'category_platform_author_client',
+                icon: meta.icon || 'category',
+                label_en: getShortCategoryLabel(categoryName),
+                color: meta.tone || '#727063',
+                children: new Map(),
+            });
+        }
+
+        const category = categoryMap.get(categoryName);
+        category.count += 1;
+        const platformName = entry.platform || 'web';
+        const platformMeta = getDashboardPlatformMeta(platformName);
+        const author = String(entry.author || '').trim() || '未知作者';
+        const key = `${platformName}::${author}`;
+        if (!category.children.has(key)) {
+            category.children.set(key, {
+                id: key,
+                platform: platformName,
+                platform_label: platformMeta.label,
+                platform_icon: platformName,
+                platform_color: platformMeta.color,
+                author,
+                count: 0,
+                recent: [],
+            });
+        }
+        const child = category.children.get(key);
+        child.count += 1;
+        child.recent.push({
+            title: entry.title || entry.url || '无标题',
+            url: entry.url,
+            created_at: entry.created_at,
+        });
+    }
+
+    const total = rows.length || 1;
+    return [...categoryMap.values()].sort((a, b) => b.count - a.count).map(category => ({
+        ...category,
+        percent: Math.round((category.count / total) * 100),
+        children: [...category.children.values()].sort((a, b) => b.count - a.count).map(child => ({
+            ...child,
+            percent_of_total: Math.round((child.count / total) * 100),
+            percent_of_category: Math.round((child.count / category.count) * 100),
+            recent: child.recent.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))).slice(0, 5),
+        })),
+    }));
+}
+
+function buildClientTrend(rows, start, days) {
+    const counts = new Map();
+    for (const entry of rows) {
+        const key = String(entry.created_at || '').slice(0, 10);
+        if (key) counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return Array.from({ length: days }, (_, index) => {
+        const d = new Date(start);
+        d.setDate(start.getDate() + index);
+        const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return { date, count: counts.get(date) || 0 };
+    });
+}
+
+function renderDashboardData(data) {
+    renderTrendChart(data);
+    renderCategoryHeatmap(data);
+}
+
+function normalizeDashboardStats(raw, fallbackRange = '1m') {
+    const trend = Array.isArray(raw.trend) ? raw.trend.map(d => ({
+        date: d.date,
+        count: Number(d.count) || 0,
+    })) : [];
+    const heatmap = normalizeDashboardHeatmap(raw.heatmap);
+    const totalEntries = Number(raw.summary?.total_entries) || trend.reduce((sum, d) => sum + d.count, 0);
+    const activeDays = Number(raw.summary?.active_days) || trend.filter(d => d.count > 0).length;
+    const topCategory = raw.summary?.top_category || heatmap[0]?.name || null;
+    return {
+        ...raw,
+        range: raw.range || fallbackRange,
+        trend,
+        heatmap,
+        summary: {
+            total_entries: totalEntries,
+            previous_entries: Number(raw.summary?.previous_entries) || 0,
+            delta_percent: Number(raw.summary?.delta_percent) || 0,
+            active_days: activeDays,
+            top_category: topCategory,
+        },
+    };
+}
+
+function normalizeDashboardHeatmap(heatmap) {
+    const rows = Array.isArray(heatmap)
+        ? heatmap
+        : (!heatmap || typeof heatmap !== 'object' ? [] : Object.entries(heatmap).map(([name, value]) => ({
+            name,
+            count: Number(value?.count) || 0,
+            percent: Number(value?.percent) || 0,
+            icon: value?.icon || 'category',
+            label_en: value?.label_en || name,
+            color: value?.color || '#727063',
+        })));
+
+    return rows.map((cat) => ({
+        ...cat,
+        name: cat.name || '其他',
+        count: Number(cat.count) || 0,
+        percent: Number(cat.percent) || 0,
+        icon: cat.icon || 'category',
+        label_en: cat.label_en || cat.name || 'Other',
+        color: cat.color || '#727063',
+        children: Array.isArray(cat.children) ? cat.children.map(child => ({
+            ...child,
+            platform: child.platform || 'web',
+            platform_label: child.platform_label || getDashboardPlatformMeta(child.platform).label,
+            platform_color: child.platform_color || getDashboardPlatformMeta(child.platform).color,
+            platform_icon: child.platform_icon || child.platform || 'web',
+            author: child.author || '未知作者',
+            count: Number(child.count) || 0,
+            percent_of_category: Number(child.percent_of_category) || 0,
+            percent_of_total: Number(child.percent_of_total) || 0,
+            recent: Array.isArray(child.recent) ? child.recent : [],
+        })).sort((a, b) => b.count - a.count) : [],
+    })).sort((a, b) => b.count - a.count);
+}
+
+function renderTrendChart(data) {
+    const chartEl = document.getElementById('dashboardTrendChart');
+    const subtitle = document.getElementById('dashboardTrendSubtitle');
+    const deltaEl = document.getElementById('dashboardTrendDelta');
+    const trend = data.trend || [];
+    const summary = data.summary || { total_entries: 0, active_days: 0, delta_percent: 0 };
+    const rawMax = Math.max(1, ...trend.map(d => d.count));
+    const maxY = rawMax <= 4 ? rawMax : Math.ceil(rawMax / 5) * 5;
+    const bounds = { left: 8, right: 98, top: 10, bottom: 82 };
+    const points = trend.map((d, i) => {
+        const x = trend.length <= 1 ? bounds.left : bounds.left + (i / (trend.length - 1)) * (bounds.right - bounds.left);
+        const y = bounds.bottom - (d.count / maxY) * (bounds.bottom - bounds.top);
+        return { ...d, x, y };
+    });
+    const linePath = buildSmoothPath(points);
+    const areaPath = points.length
+        ? `${linePath} L${points[points.length - 1].x.toFixed(2)},${bounds.bottom} L${points[0].x.toFixed(2)},${bounds.bottom} Z`
+        : '';
+    const tickIndexes = buildTickIndexes(trend.length);
+    const yTicks = Array.from({ length: 5 }, (_, i) => {
+        const ratio = i / 4;
+        return {
+            y: bounds.top + ratio * (bounds.bottom - bounds.top),
+            value: Math.round(maxY * (1 - ratio)),
+        };
+    });
+    const activeMarkers = selectVisibleMarkers(points.filter(p => p.count > 0), 18);
+    const peakPoint = points.reduce((best, p) => p.count > best.count ? p : best, points[0] || { count: 0, x: bounds.left, y: bounds.bottom });
+    const lastActivePoint = [...points].reverse().find(p => p.count > 0) || points[points.length - 1];
+    const accent = '#715915';
+    const accentSoft = '#d6a849';
+
+    subtitle.textContent = `${rangeLabel(data.range)} · ${summary.total_entries} 条收录 · ${summary.active_days} 个活跃日`;
+    const delta = summary.delta_percent;
+    deltaEl.textContent = `${delta >= 0 ? '+' : ''}${delta}%`;
+    deltaEl.className = `font-label text-xs font-semibold px-2.5 py-1 rounded-full ${delta >= 0 ? 'text-primary bg-primary/10' : 'text-error bg-error-container/50'}`;
+
+    chartEl.innerHTML = `
+        <div class="absolute left-0 top-0 z-20 flex gap-3">
+            <div class="rounded-md bg-surface-container-lowest/90 border border-outline-variant/20 px-3 py-2 shadow-[0_10px_30px_rgba(28,28,22,0.06)]">
+                <div class="font-label text-[10px] uppercase tracking-[0.18em] text-on-surface/45">Total</div>
+                <div class="font-headline text-2xl leading-none text-on-surface mt-1">${summary.total_entries}</div>
+            </div>
+            <div class="rounded-md bg-surface-container-low/90 border border-outline-variant/15 px-3 py-2">
+                <div class="font-label text-[10px] uppercase tracking-[0.18em] text-on-surface/45">Peak</div>
+                <div class="font-headline text-2xl leading-none text-on-surface mt-1">${peakPoint?.count || 0}</div>
+            </div>
+        </div>
+        <svg class="absolute inset-0 h-full w-full z-10" preserveAspectRatio="none" viewBox="0 0 100 100" aria-label="Capture trend chart">
+            <defs>
+                <linearGradient id="trendAreaGradient" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stop-color="${accentSoft}" stop-opacity="0.34"></stop>
+                    <stop offset="72%" stop-color="${accentSoft}" stop-opacity="0.05"></stop>
+                    <stop offset="100%" stop-color="${accentSoft}" stop-opacity="0"></stop>
+                </linearGradient>
+                <filter id="trendLineGlow" x="-10%" y="-40%" width="120%" height="180%">
+                    <feDropShadow dx="0" dy="3" stdDeviation="2.2" flood-color="${accent}" flood-opacity="0.18"/>
+                </filter>
+            </defs>
+            <rect x="${bounds.left}" y="${bounds.top}" width="${bounds.right - bounds.left}" height="${bounds.bottom - bounds.top}" rx="1.5" fill="#f7f4e9" opacity="0.52"></rect>
+            ${yTicks.map(tick => `
+                <line x1="${bounds.left}" x2="${bounds.right}" y1="${tick.y.toFixed(2)}" y2="${tick.y.toFixed(2)}" stroke="#d0c5b4" stroke-width="0.35" stroke-dasharray="1.5 2.2" opacity="0.75"></line>
+                <text x="1.6" y="${(tick.y + 1).toFixed(2)}" font-size="3.2" fill="#7e7667" font-family="Inter, sans-serif">${tick.value}</text>
+            `).join('')}
+            <line x1="${bounds.left}" x2="${bounds.right}" y1="${bounds.bottom}" y2="${bounds.bottom}" stroke="#7e7667" stroke-width="0.45" opacity="0.55"></line>
+            ${areaPath ? `<path d="${areaPath}" fill="url(#trendAreaGradient)"></path>` : ''}
+            ${linePath ? `<path d="${linePath}" fill="none" stroke="${accent}" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.55" filter="url(#trendLineGlow)"></path>` : ''}
+            ${activeMarkers.map(p => `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="1.15" fill="#fcf9ef" stroke="${accent}" stroke-width="0.65"></circle>`).join('')}
+            ${peakPoint?.count > 0 ? `
+                <line x1="${peakPoint.x.toFixed(2)}" x2="${peakPoint.x.toFixed(2)}" y1="${peakPoint.y.toFixed(2)}" y2="${bounds.bottom}" stroke="${accent}" stroke-width="0.35" stroke-dasharray="1 1.6" opacity="0.5"></line>
+                <circle cx="${peakPoint.x.toFixed(2)}" cy="${peakPoint.y.toFixed(2)}" r="2.25" fill="${accent}" opacity="0.16"></circle>
+                <circle cx="${peakPoint.x.toFixed(2)}" cy="${peakPoint.y.toFixed(2)}" r="1.15" fill="${accent}"></circle>
+            ` : ''}
+            ${lastActivePoint?.count > 0 ? `<circle cx="${lastActivePoint.x.toFixed(2)}" cy="${lastActivePoint.y.toFixed(2)}" r="1.55" fill="#fcf9ef" stroke="${accent}" stroke-width="0.9"></circle>` : ''}
+        </svg>
+        <div class="absolute bottom-1 left-[8%] right-[2%] z-20 flex justify-between text-[10px] font-label text-on-surface/45">
+            ${tickIndexes.map(i => `<span>${formatChartDate(trend[i]?.date, data.range)}</span>`).join('')}
+        </div>
+        ${summary.total_entries === 0 ? '<div class="absolute inset-0 z-30 flex items-center justify-center text-sm text-on-surface-variant">当前时间范围暂无收录</div>' : ''}
+    `;
+}
+
+function renderCategoryHeatmap(data) {
+    const heatmapEl = document.getElementById('dashboardHeatmap');
+    const subtitle = document.getElementById('dashboardHeatmapSubtitle');
+    const tooltip = document.getElementById('dashboardHeatmapTooltip');
+    const categories = (data.heatmap || []).filter(cat => cat.count > 0);
+    const summary = data.summary || { total_entries: 0, top_category: null };
+    const sourceCount = new Set(categories.flatMap(cat => (cat.children || []).map(child => child.platform))).size;
+    subtitle.textContent = summary.top_category
+        ? `${rangeLabel(data.range)} · ${summary.total_entries} 条 · ${categories.length} 类 · ${sourceCount} 个来源`
+        : '当前时间范围暂无分类标签数据';
+
+    if (!categories.length) {
+        heatmapEl.innerHTML = '<div class="absolute inset-0 flex items-center justify-center rounded-lg bg-[#171814] text-sm text-white/45">当前筛选条件下暂无收录</div>';
+        if (tooltip) tooltip.classList.add('hidden');
+        return;
+    }
+
+    const draw = () => drawAttentionTreemap(heatmapEl, tooltip, categories, summary.total_entries);
+    draw();
+    if (dashboardResizeObserver) {
+        dashboardResizeObserver.disconnect();
+        dashboardResizeObserver = null;
+    }
+    if (window.ResizeObserver) {
+        dashboardResizeObserver = new ResizeObserver(() => {
+            if (state.view === 'dashboard') draw();
+        });
+        dashboardResizeObserver.observe(heatmapEl);
+    }
+}
+
+function drawAttentionTreemap(container, tooltip, categories, totalEntries) {
+    const width = Math.max(320, container.clientWidth || 0);
+    const height = Math.max(420, container.clientHeight || 0);
+    const categoryRects = sliceTreemap(
+        categories.map(cat => ({ ...cat, value: cat.count })),
+        { x: 0, y: 0, w: width, h: height },
+        7
+    );
+
+    container.innerHTML = categoryRects.map(({ item: cat, rect }) => {
+        const categoryColor = normalizeHexColor(cat.color || '#727063');
+        const compactHeader = rect.w < 210 || rect.h < 145;
+        const headerHeight = compactHeader ? 46 : 58;
+        const categoryPercent = Number(cat.percent) || Math.round((cat.count / Math.max(1, totalEntries)) * 100);
+        const childArea = {
+            x: 9,
+            y: headerHeight + 6,
+            w: Math.max(0, rect.w - 18),
+            h: Math.max(0, rect.h - headerHeight - 15),
+        };
+        const childRects = sliceTreemap(
+            (cat.children?.length ? cat.children : [{
+                platform: 'web',
+                platform_label: 'Web',
+                platform_color: categoryColor,
+                author: '未知作者',
+                count: cat.count,
+                percent_of_category: 100,
+                percent_of_total: cat.percent,
+                recent: [],
+            }]).map(child => ({ ...child, value: child.count })),
+            childArea,
+            5
+        );
+
+        return `
+            <section class="absolute rounded-md overflow-hidden transition-all duration-500"
+                style="left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px;background:${hexToRgba(categoryColor, 0.17)};box-shadow: inset 0 0 0 1px ${hexToRgba(categoryColor, 0.38)};">
+                <div class="absolute inset-x-0 top-0 px-3 flex items-center justify-between gap-3 border-b border-white/10"
+                     style="height:${headerHeight}px;background:linear-gradient(90deg, ${hexToRgba(categoryColor, 0.24)}, rgba(255,255,255,0.02));">
+                    <div class="min-w-0 flex items-center gap-2.5">
+                        <span class="material-symbols-outlined text-[18px] text-white/78 shrink-0">${escapeHtml((window.getCategoryMeta ? window.getCategoryMeta(cat.name).icon : cat.icon) || 'category')}</span>
+                        <div class="min-w-0">
+                            <div class="font-body ${compactHeader ? 'text-xs' : 'text-sm'} font-semibold text-white truncate">${escapeHtml(cat.name)}</div>
+                            <div class="font-label text-[10px] uppercase tracking-[0.16em] text-white/48 truncate">${escapeHtml(cat.label_en || getShortCategoryLabel(cat.name))}</div>
+                        </div>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <div class="font-headline ${compactHeader ? 'text-xl' : 'text-2xl'} leading-none text-white">${categoryPercent}%</div>
+                        <div class="font-label text-[10px] text-white/45">${cat.count} 条</div>
+                    </div>
+                </div>
+                ${childRects.map(({ item: child, rect: childRect }) => renderTreemapTile(child, cat, childRect, totalEntries)).join('')}
+            </section>
+        `;
+    }).join('');
+
+    container.querySelectorAll('[data-treemap-tile]').forEach(tile => {
+        tile.addEventListener('mousemove', event => showTreemapTooltip(event, tooltip, tile));
+        tile.addEventListener('mouseleave', () => tooltip?.classList.add('hidden'));
+    });
+}
+
+function renderTreemapTile(child, category, rect, totalEntries) {
+    const meta = getDashboardPlatformMeta(child.platform);
+    const color = normalizeHexColor(child.platform_color || meta.color);
+    const small = rect.w < 96 || rect.h < 72;
+    const tiny = rect.w < 66 || rect.h < 50;
+    const highFrequency = child.count >= 2 || child.percent_of_category >= 40;
+    const recent = encodeURIComponent(JSON.stringify(child.recent || []));
+    const label = highFrequency && !tiny ? child.author : child.platform_label;
+    const categoryPercent = child.percent_of_category || Math.round((child.count / Math.max(1, category.count)) * 100);
+    const totalPercent = child.percent_of_total || Math.round((child.count / Math.max(1, totalEntries)) * 100);
+    return `
+        <article data-treemap-tile
+            data-category="${escapeHtml(category.name)}"
+            data-platform="${escapeHtml(child.platform_label || meta.label)}"
+            data-author="${escapeHtml(child.author)}"
+            data-count="${child.count}"
+            data-category-percent="${categoryPercent}"
+            data-total-percent="${totalPercent}"
+            data-recent="${recent}"
+            class="absolute rounded-[6px] overflow-hidden group cursor-default transition-all duration-500 hover:z-20 hover:brightness-110"
+            style="left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px;background:linear-gradient(135deg, ${darkenHex(color, 0.62)} 0%, ${darkenHex(color, 0.42)} 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);">
+            <div class="absolute inset-0 opacity-30" style="background:radial-gradient(circle at 18% 8%, rgba(255,255,255,0.45), rgba(255,255,255,0) 55%);"></div>
+            <div class="relative h-full p-2.5 flex flex-col ${tiny ? 'items-center justify-center' : 'justify-between'}">
+                <div class="flex items-center gap-2 min-w-0 ${tiny ? 'justify-center' : ''}">
+                    ${renderPlatformLogo(child, small ? 'small' : 'normal')}
+                    ${tiny ? '' : `<span class="font-label text-[10px] uppercase tracking-[0.13em] text-white/72 truncate">${escapeHtml(child.platform_label || meta.label)}</span>`}
+                </div>
+                ${tiny ? '' : `
+                    <div class="min-w-0">
+                        <div class="font-body ${small ? 'text-[11px]' : 'text-sm'} font-semibold text-white truncate">${escapeHtml(label)}</div>
+                        <div class="font-label text-[10px] text-white/56 mt-0.5">${child.count} captures · ${categoryPercent}% of ${escapeHtml(category.name)}</div>
+                    </div>
+                `}
+            </div>
+        </article>
+    `;
+}
+
+function showTreemapTooltip(event, tooltip, tile) {
+    if (!tooltip) return;
+    let recent = [];
+    try {
+        recent = JSON.parse(decodeURIComponent(tile.dataset.recent || '%5B%5D'));
+    } catch {
+        recent = [];
+    }
+    tooltip.innerHTML = `
+        <div class="font-label text-[10px] uppercase tracking-[0.18em] text-on-surface/45">${escapeHtml(tile.dataset.category)} · ${escapeHtml(tile.dataset.platform)}</div>
+        <div class="mt-1 font-headline text-2xl leading-tight text-on-surface">${escapeHtml(tile.dataset.author)}</div>
+        <div class="mt-2 flex gap-2 text-xs font-label text-on-surface-variant">
+            <span>${escapeHtml(tile.dataset.count)} 条收录</span>
+            <span>${escapeHtml(tile.dataset.categoryPercent)}% 类内占比</span>
+            <span>${escapeHtml(tile.dataset.totalPercent)}% 总占比</span>
+        </div>
+        <div class="mt-3 space-y-1.5">
+            ${recent.slice(0, 5).map(item => `<div class="font-body text-xs leading-snug text-on-surface/78 line-clamp-2">- ${escapeHtml(item.title || '无标题')}</div>`).join('') || '<div class="font-body text-xs text-on-surface/55">暂无最近标题</div>'}
+        </div>
+    `;
+    tooltip.classList.remove('hidden');
+    const x = Math.min(window.innerWidth - 340, event.clientX + 18);
+    const y = Math.min(window.innerHeight - 220, event.clientY + 18);
+    tooltip.style.left = `${Math.max(12, x)}px`;
+    tooltip.style.top = `${Math.max(12, y)}px`;
+}
+
+function sliceTreemap(items, area, gap = 4, horizontal = area.w >= area.h) {
+    const filtered = items.filter(item => Number(item.value) > 0);
+    if (!filtered.length || area.w <= 0 || area.h <= 0) return [];
+    const sorted = [...filtered].sort((a, b) => Number(b.value || 0) - Number(a.value || 0));
+    return binaryTreemap(sorted, area, gap, horizontal)
+        .filter(({ rect }) => rect.w > 8 && rect.h > 8);
+}
+
+function binaryTreemap(items, area, gap, horizontal) {
+    if (items.length === 1) {
+        return [{ item: items[0], rect: shrinkRect(area, gap) }];
+    }
+    const total = items.reduce((sum, item) => sum + Number(item.value || 0), 0);
+    let headTotal = 0;
+    let splitIndex = 0;
+    for (let i = 0; i < items.length - 1; i++) {
+        const nextTotal = headTotal + Number(items[i].value || 0);
+        if (Math.abs(total / 2 - nextTotal) <= Math.abs(total / 2 - headTotal)) {
+            headTotal = nextTotal;
+            splitIndex = i + 1;
+        } else {
+            break;
+        }
+    }
+    splitIndex = Math.max(1, splitIndex);
+    const first = items.slice(0, splitIndex);
+    const second = items.slice(splitIndex);
+    const ratio = headTotal / total;
+    if (horizontal) {
+        const firstW = Math.round(area.w * ratio);
+        return [
+            ...binaryTreemap(first, { x: area.x, y: area.y, w: firstW, h: area.h }, gap, !horizontal),
+            ...binaryTreemap(second, { x: area.x + firstW, y: area.y, w: area.w - firstW, h: area.h }, gap, !horizontal),
+        ];
+    }
+    const firstH = Math.round(area.h * ratio);
+    return [
+        ...binaryTreemap(first, { x: area.x, y: area.y, w: area.w, h: firstH }, gap, !horizontal),
+        ...binaryTreemap(second, { x: area.x, y: area.y + firstH, w: area.w, h: area.h - firstH }, gap, !horizontal),
+    ];
+}
+
+function shrinkRect(rect, gap) {
+    const half = gap / 2;
+    return {
+        x: rect.x + half,
+        y: rect.y + half,
+        w: Math.max(0, rect.w - gap),
+        h: Math.max(0, rect.h - gap),
+    };
+}
+
+function getDashboardPlatformMeta(platform) {
+    return DASHBOARD_PLATFORM_META[platform] || DASHBOARD_PLATFORM_META.web;
+}
+
+function renderPlatformLogo(child, size = 'normal') {
+    const box = size === 'small' ? 'w-7 h-7' : 'w-8 h-8';
+    const logoUrl = getOfficialLogoUrl(child.platform, child.recent?.[0]?.url);
+    if (!logoUrl) {
+        return `<span class="platform-logo ${box} rounded-md bg-white/12 inline-flex items-center justify-center shrink-0 overflow-hidden"></span>`;
+    }
+    return `
+        <span class="platform-logo ${box} rounded-md bg-white/92 inline-flex items-center justify-center shrink-0 p-1 overflow-hidden">
+            <img class="max-w-full max-h-full object-contain" src="${escapeHtml(logoUrl)}" alt="${escapeHtml((child.platform_label || getDashboardPlatformMeta(child.platform).label) + ' logo')}" referrerpolicy="no-referrer"
+                onerror="this.closest('.platform-logo')?.classList.add('opacity-30'); this.remove();" />
+        </span>
+    `;
+}
+
+function getOfficialLogoUrl(platform, sourceUrl) {
+    const meta = getDashboardPlatformMeta(platform);
+    if (platform === 'web') return getFaviconFromUrl(sourceUrl) || meta.logo || '';
+    return meta.logo || getFaviconFromUrl(sourceUrl) || '';
+}
+
+function getFaviconFromUrl(sourceUrl) {
+    const url = extractFirstUrl(sourceUrl);
+    if (!url) return '';
+    try {
+        const parsed = new URL(url);
+        return `${parsed.origin}/favicon.ico`;
+    } catch {
+        return '';
+    }
+}
+
+function extractFirstUrl(value) {
+    const match = String(value || '').match(/https?:\/\/[^\s，。)）】]+/i);
+    return match ? match[0] : '';
+}
+
+function darkenHex(hex, amount = 0.5) {
+    const value = normalizeHexColor(hex).slice(1);
+    const int = parseInt(value, 16);
+    const r = Math.round(((int >> 16) & 255) * amount);
+    const g = Math.round(((int >> 8) & 255) * amount);
+    const b = Math.round((int & 255) * amount);
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+function getShortCategoryLabel(name) {
+    const labels = {
+        '人工智能': 'AI',
+        '计算机科学': 'CS',
+        '经济与金融': 'Finance',
+        '商业与管理': 'Business',
+        '影视与娱乐': 'Film',
+        '产品与技术': 'Product',
+        '生态与环境': 'Ecology',
+        '其他': 'Other',
+    };
+    return labels[name] || name || 'Other';
+}
+
+function normalizeHexColor(color) {
+    const value = String(color || '').trim();
+    if (/^#[0-9a-f]{6}$/i.test(value)) return value;
+    if (/^#[0-9a-f]{3}$/i.test(value)) {
+        return `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`;
+    }
+    return '#727063';
+}
+
+function hexToRgba(hex, alpha = 1) {
+    const value = normalizeHexColor(hex).slice(1);
+    const int = parseInt(value, 16);
+    const r = (int >> 16) & 255;
+    const g = (int >> 8) & 255;
+    const b = int & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function buildSmoothPath(points) {
+    if (!points.length) return '';
+    if (points.length === 1) return `M${points[0].x.toFixed(2)},${points[0].y.toFixed(2)}`;
+    let path = `M${points[0].x.toFixed(2)},${points[0].y.toFixed(2)}`;
+    for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1];
+        const curr = points[i];
+        const midX = (prev.x + curr.x) / 2;
+        path += ` C${midX.toFixed(2)},${prev.y.toFixed(2)} ${midX.toFixed(2)},${curr.y.toFixed(2)} ${curr.x.toFixed(2)},${curr.y.toFixed(2)}`;
+    }
+    return path;
+}
+
+function selectVisibleMarkers(points, limit) {
+    if (points.length <= limit) return points;
+    const step = Math.ceil(points.length / limit);
+    return points.filter((_, index) => index % step === 0 || index === points.length - 1);
+}
+
+function buildTickIndexes(length) {
+    if (!length) return [];
+    if (length <= 5) return Array.from({ length }, (_, i) => i);
+    return [0, Math.floor((length - 1) * 0.25), Math.floor((length - 1) * 0.5), Math.floor((length - 1) * 0.75), length - 1];
+}
+
+function rangeLabel(range) {
+    return ({ '1w': '近1周', '1m': '近1月', '3m': '近3月', '1y': '近1年' })[range] || '近1月';
+}
+
+function formatChartDate(date, range) {
+    if (!date) return '';
+    const d = new Date(date + 'T00:00:00');
+    if (range === '1y') return `${d.getMonth() + 1}/${d.getDate()}`;
+    return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // ── Search ───────────────────────────────────────────────────────────────────
@@ -585,12 +1249,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // View toggle
-    document.getElementById('viewShelf').addEventListener('click', () => setView('shelf'));
-    document.getElementById('viewTimeline').addEventListener('click', () => setView('timeline'));
-    document.getElementById('viewDashboard').addEventListener('click', () => setView('dashboard'));
+    document.getElementById('viewShelf').addEventListener('click', (e) => {
+        e.preventDefault();
+        setView('shelf');
+    });
+    document.getElementById('viewTimeline').addEventListener('click', (e) => {
+        e.preventDefault();
+        setView('timeline');
+    });
+    document.getElementById('viewDashboard').addEventListener('click', (e) => {
+        e.preventDefault();
+        setView('dashboard');
+    });
     document.getElementById('sortSelect').addEventListener('change', e => {
         state.sort = e.target.value;
         renderCurrentView();
+    });
+    document.getElementById('dashboardTimeFilter')?.addEventListener('change', () => {
+        if (state.view === 'dashboard') renderDashboard();
+    });
+    document.getElementById('dashboardCategoryFilter')?.addEventListener('change', () => {
+        if (state.view === 'dashboard') renderDashboard();
+    });
+    document.getElementById('dashboardPlatformFilter')?.addEventListener('change', () => {
+        if (state.view === 'dashboard') renderDashboard();
     });
 
     // Search

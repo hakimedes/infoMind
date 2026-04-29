@@ -45,6 +45,11 @@ class ApiClient {
 
     // Stats
     getStats() { return this.get('/api/stats'); }
+    getAdvancedStats(params = '1m') {
+        const query = typeof params === 'string' ? { range: params } : (params || {});
+        const q = new URLSearchParams(query).toString();
+        return this.get(`/api/stats/advanced${q ? '?' + q : ''}`);
+    }
 
     // Config
     getConfig() { return this.get('/api/config'); }
