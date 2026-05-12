@@ -1,11 +1,27 @@
 ---
 name: infomind
-description: 个人知识管理系统 - 收藏和管理网络内容链接（支持 YouTube、Bilibili、Twitter、小红书、知乎等主流平台）
+description: 个人知识管理系统 - 当用户发送链接并说“收录/收藏/保存/记一下/稍后看”等关键词时，自动收藏和管理网络内容链接（支持 YouTube、Bilibili、Twitter、小红书、知乎等主流平台）
 ---
 
 ## 添加链接到知识库
 
-当用户发送 URL 链接并要求收藏/保存/记录/稍后看时，调用此接口将链接添加到 InfoMind 知识库。
+当用户消息同时包含 URL 链接和明确收藏意图时，直接调用此接口将链接添加到 InfoMind 知识库，不需要再次向用户确认。
+
+明确收藏意图包括：
+
+- 中文：收录、收藏、保存、记录、记一下、存一下、加入书架、稍后看
+- 英文：save、collect、bookmark、remember、read later、add to knowledge base
+
+示例：
+
+- `收录 https://example.com/article`
+- `帮我收藏这个 https://youtube.com/watch?v=...`
+- `这个稍后看 https://...`
+- `save this https://...`
+
+如果一条消息里有多个 URL，并且带有收藏意图，逐个 URL 调用接口保存。
+
+如果用户只是让你总结、阅读、解释某个 URL，但没有表达收藏意图，不要自动保存，除非上下文明显是在让你记录到 InfoMind。
 
 POST http://localhost:3456/api/entries
 Content-Type: application/json
@@ -15,7 +31,7 @@ Content-Type: application/json
   "note": "{{用户的备注，没有就不传}}"
 }
 
-成功后，向用户说明已将内容收录到某个分类的书架中。
+成功后，向用户说明已将内容收录到某个分类的书架中。如果接口返回 `URL already exists`，说明已经收藏过，直接告诉用户已在知识库中。
 
 ## 搜索知识库内容
 
