@@ -352,12 +352,12 @@ tailwind.config = {
             </section>
             <section class="space-y-6">
                 <h3 class="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[18px]">integration_instructions</span> OpenClaw Integration
+                    <span class="material-symbols-outlined text-[18px]">integration_instructions</span> Agent Integration
                 </h3>
                 <div class="bg-surface-container-low p-6 rounded-lg text-sm">
-                    <p class="mb-2"><strong>Webhook URL:</strong></p>
-                    <code id="webhookUrl" class="block bg-surface-container-lowest p-2 rounded border border-outline-variant/20 mb-2 font-mono">http://localhost:3456/api/webhook/openclaw</code>
-                    <button class="text-primary hover:underline font-label" onclick="copyWebhookUrl()">Copy URL</button>
+                    <p class="mb-2"><strong>服务器上一句命令接入 Agent:</strong></p>
+                    <code id="agentConnectCommand" class="block bg-surface-container-lowest p-2 rounded border border-outline-variant/20 mb-2 font-mono whitespace-pre-wrap break-all">cd ~/infoMind &amp;&amp; mkdir -p ~/.hermes/skills/infomind ~/.hermes &amp;&amp; cp deploy/hermes/infomind/SKILL.md ~/.hermes/skills/infomind/SKILL.md &amp;&amp; touch ~/.hermes/.env &amp;&amp; (grep -qxF 'INFOMIND_BASE_URL=http://127.0.0.1:3456' ~/.hermes/.env || echo 'INFOMIND_BASE_URL=http://127.0.0.1:3456' &gt;&gt; ~/.hermes/.env)</code>
+                    <button class="text-primary hover:underline font-label" onclick="copyAgentConnectCommand()">Copy Command</button>
                 </div>
             </section>
         </div>

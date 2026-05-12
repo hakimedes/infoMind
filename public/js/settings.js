@@ -37,8 +37,14 @@ async function openSettings() {
     `;
     } catch { }
 
-    // Set webhook URL
-    document.getElementById('webhookUrl').textContent = `http://localhost:${window.location.port || 3456}/api/webhook/openclaw`;
+    // Set Agent integration command
+    document.getElementById('agentConnectCommand').textContent = [
+        'cd ~/infoMind',
+        'mkdir -p ~/.hermes/skills/infomind ~/.hermes',
+        'cp deploy/hermes/infomind/SKILL.md ~/.hermes/skills/infomind/SKILL.md',
+        'touch ~/.hermes/.env',
+        "(grep -qxF 'INFOMIND_BASE_URL=http://127.0.0.1:3456' ~/.hermes/.env || echo 'INFOMIND_BASE_URL=http://127.0.0.1:3456' >> ~/.hermes/.env)"
+    ].join(' && ');
 }
 
 function closeSettings() {
@@ -97,13 +103,13 @@ function toggleApiKeyVisibility() {
     input.type = input.type === 'password' ? 'text' : 'password';
 }
 
-function copyWebhookUrl() {
-    const url = document.getElementById('webhookUrl').textContent;
-    navigator.clipboard.writeText(url).then(() => window.showToast('已复制', 'success'));
+function copyAgentConnectCommand() {
+    const command = document.getElementById('agentConnectCommand').textContent;
+    navigator.clipboard.writeText(command).then(() => window.showToast('已复制', 'success'));
 }
 
 window.initSettings = initSettings;
 window.openSettings = openSettings;
 window.closeSettings = closeSettings;
 window.toggleApiKeyVisibility = toggleApiKeyVisibility;
-window.copyWebhookUrl = copyWebhookUrl;
+window.copyAgentConnectCommand = copyAgentConnectCommand;
