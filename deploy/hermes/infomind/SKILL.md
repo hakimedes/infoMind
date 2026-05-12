@@ -1,11 +1,13 @@
 ---
 name: infomind
-description: Automatically save URLs to InfoMind when the user asks to collect, save, bookmark, remember, or read later; also search the personal knowledge shelf and prepare daily reading plans.
+description: InfoMind 个人知识库。用户发送链接并说“收录、收藏、保存、记录、记一下、存一下、加入书架、稍后看”时，自动把 URL 保存到 InfoMind；也支持搜索已收录内容、读取书架、查看统计和生成阅读计划。Also triggers on save, collect, bookmark, remember, read later.
 ---
 
 # InfoMind Personal Knowledge Skill
 
 Use this skill when the user wants to save a URL, search previously saved content, review the bookshelf, or plan daily reading.
+
+Important: if a user message contains a URL plus any collection keyword such as `收录`, `收藏`, `保存`, `记录`, `记一下`, `存一下`, `加入书架`, or `稍后看`, this skill must be used to save the URL to InfoMind.
 
 ## Configuration
 
