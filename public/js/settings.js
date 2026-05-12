@@ -40,10 +40,7 @@ async function openSettings() {
     // Set Agent integration command
     document.getElementById('agentConnectCommand').textContent = [
         'cd ~/infoMind',
-        'mkdir -p ~/.hermes/skills/infomind ~/.hermes',
-        'cp deploy/hermes/infomind/SKILL.md ~/.hermes/skills/infomind/SKILL.md',
-        'touch ~/.hermes/.env',
-        "(grep -qxF 'INFOMIND_BASE_URL=http://127.0.0.1:3456' ~/.hermes/.env || echo 'INFOMIND_BASE_URL=http://127.0.0.1:3456' >> ~/.hermes/.env)"
+        'bash deploy/hermes/install-infomind-skill.sh'
     ].join(' && ');
 }
 
