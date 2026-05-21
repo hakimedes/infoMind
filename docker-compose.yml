@@ -1,0 +1,14 @@
+services:
+  infomind:
+    build: .
+    container_name: infomind
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      INFOMIND_PORT: 3456
+      INFOMIND_DB_PATH: /app/data/infomind.db
+    ports:
+      - "127.0.0.1:3456:3456"
+    volumes:
+      - ./data:/app/data

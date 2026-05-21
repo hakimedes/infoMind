@@ -2,6 +2,9 @@ node_modules/
 data/
 .env
 .env.local
+.env.production
+.vscode/
+deploy/backups/
 *.db
 *.db-shm
 *.db-wal
