@@ -47,6 +47,23 @@ CREATE TABLE IF NOT EXISTS entries (
     FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE SET NULL
 );
 
+-- 内容解读产物表：保存对单条内容的真实结构化分析，避免前端伪造或重复消耗 token
+CREATE TABLE IF NOT EXISTS entry_analysis (
+    id            TEXT PRIMARY KEY,
+    entry_id      TEXT NOT NULL UNIQUE,
+    status        TEXT NOT NULL DEFAULT 'pending',
+    content_hash  TEXT,
+    source_kind   TEXT,
+    source_length INTEGER DEFAULT 0,
+    model         TEXT,
+    token_budget  TEXT DEFAULT 'medium',
+    result_json   TEXT DEFAULT '{}',
+    error         TEXT,
+    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+);
+
 -- 系统配置表
 CREATE TABLE IF NOT EXISTS config (
     key        TEXT PRIMARY KEY,
@@ -59,5 +76,7 @@ CREATE INDEX IF NOT EXISTS idx_entries_category   ON entries(category);
 CREATE INDEX IF NOT EXISTS idx_entries_platform   ON entries(platform);
 CREATE INDEX IF NOT EXISTS idx_entries_created_at ON entries(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_entries_book_id    ON entries(book_id);
+CREATE INDEX IF NOT EXISTS idx_entry_analysis_entry_id ON entry_analysis(entry_id);
+CREATE INDEX IF NOT EXISTS idx_entry_analysis_status   ON entry_analysis(status);
 CREATE INDEX IF NOT EXISTS idx_books_category     ON books(category);
 CREATE INDEX IF NOT EXISTS idx_books_platform     ON books(platform);

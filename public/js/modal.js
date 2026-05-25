@@ -61,19 +61,17 @@ function openBookModal(bookId) {
     </nav>
     
     <div class="space-y-12 max-w-2xl text-on-surface-variant font-body">
-        ${entries[0]?.summary ? `
-        <section>
+        <section id="bookModalInsightSection" class="${initialEntry?.summary ? '' : 'hidden'}">
             <div class="flex items-center gap-3 mb-6">
                 <div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center">
                     <span class="material-symbols-outlined text-on-secondary-container text-sm">auto_awesome</span>
                 </div>
                 <h3 class="font-headline text-2xl text-on-surface tracking-tight">AI Generated Insight</h3>
             </div>
-            <p class="font-body text-lg leading-relaxed text-on-surface-variant break-words">
-                ${escapeHtml(entries[0].summary).replace(/\n/g, '<br/>')}
+            <p id="bookModalInsightText" class="font-body text-lg leading-relaxed text-on-surface-variant break-words">
+                ${escapeHtml(initialEntry?.summary || '').replace(/\n/g, '<br/>')}
             </p>
         </section>
-        ` : '<p>No summary available.</p>'}
         
         ${entries.length > 0 ? `
         <section class="pt-8 border-t border-outline-variant/20">
@@ -90,11 +88,25 @@ function openBookModal(bookId) {
             </div>
         </section>
         ` : ''}
+
+        <section class="pt-8 border-t border-outline-variant/20">
+            <div class="flex items-center justify-between gap-4 mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center">
+                        <span class="material-symbols-outlined text-primary text-sm">account_tree</span>
+                    </div>
+                    <h3 class="font-headline text-2xl text-on-surface tracking-tight">Article Mind Map</h3>
+                </div>
+                <span id="bookModalMindMapMeta" class="font-label text-xs uppercase tracking-[0.16em] text-on-surface-variant/70">${escapeHtml(getModalPlatformLabel(initialEntry?.platform || book.platform))}</span>
+            </div>
+            <div id="bookModalMindMap">${buildAnalysisLoadingState('正在读取已有解读...')}</div>
+        </section>
     </div>
 </div>
         `;
 
         bindBookEntryInteractions(entries, book);
+        updateBookModalAnalysis(initialEntry, book);
     }).catch(err => {
         content.innerHTML = `<div style="padding:40px;text-align:center;color:#ba1a1a">加载失败: ${escapeHtml(err.message)}</div>`;
     });
@@ -107,6 +119,135 @@ function buildModalCover(item, fallbackTitle) {
         ? `<img alt="${escapeHtml(title)}" class="w-full h-full object-cover" src="${escapeHtml(coverPath)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
                <div class="w-full h-full bg-surface p-6 items-center justify-center" style="display:none"><span class="font-headline text-2xl text-on-surface text-center leading-tight">${escapeHtml(title)}</span></div>`
         : `<div class="w-full h-full bg-surface p-6 flex items-center justify-center"><span class="font-headline text-2xl text-on-surface text-center leading-tight">${escapeHtml(title)}</span></div>`;
+}
+
+function buildAnalysisLoadingState(message = '正在生成真实内容解读...') {
+    return `
+        <div class="min-h-[360px] rounded-3xl border border-primary/15 bg-surface-container-lowest/70 flex flex-col items-center justify-center text-center p-8">
+            <span class="material-symbols-outlined animate-spin text-4xl text-primary mb-4">autorenew</span>
+            <p class="font-body text-on-surface">${escapeHtml(message)}</p>
+            <p class="font-body text-sm text-on-surface-variant mt-2">长内容会分段摘要后再合并，避免浪费 token。</p>
+        </div>
+    `;
+}
+
+function buildAnalysisEmptyState(entry) {
+    return `
+        <div class="min-h-[360px] rounded-3xl border border-primary/15 bg-[linear-gradient(135deg,rgba(250,249,239,0.96),rgba(241,246,231,0.94))] p-8 flex flex-col justify-center">
+            <div class="w-12 h-12 rounded-full bg-primary-container text-primary flex items-center justify-center mb-5">
+                <span class="material-symbols-outlined">account_tree</span>
+            </div>
+            <h4 class="font-headline text-2xl text-on-surface mb-3">尚未生成真实解读</h4>
+            <p class="font-body text-on-surface-variant leading-relaxed mb-6">
+                InfoMind 会先读取可获取正文、播客文稿或转录文本，再调用 LLM 生成结构化思维导图。不会仅凭标题和封面伪造导图。
+            </p>
+            <button type="button" data-analysis-action="generate" data-entry-id="${escapeHtml(entry?.id || '')}" class="w-fit inline-flex items-center gap-2 rounded-lg bg-primary text-on-primary px-5 py-3 font-body font-medium hover:bg-primary-container transition-colors">
+                <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
+                生成文章解读
+            </button>
+        </div>
+    `;
+}
+
+function buildAnalysisNeedsContentState(analysis, entry) {
+    const result = analysis?.result || {};
+    return `
+        <div class="min-h-[360px] rounded-3xl border border-outline-variant/30 bg-surface-container-lowest p-8">
+            <div class="flex items-start gap-4">
+                <div class="w-10 h-10 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined">travel_explore</span>
+                </div>
+                <div>
+                    <h4 class="font-headline text-2xl text-on-surface mb-3">需要更多正文</h4>
+                    <p class="font-body text-on-surface-variant leading-relaxed">${escapeHtml(result.reason || analysis?.error || '当前内容不足，无法生成可信导图。')}</p>
+                    <p class="font-body text-sm text-on-surface-variant mt-4">需要内容：${escapeHtml(result.required_content || '正文、字幕或转录文本')}</p>
+                </div>
+            </div>
+            <div class="mt-8 rounded-2xl bg-surface-container-low p-5 border border-outline-variant/20">
+                <div class="font-label text-xs uppercase tracking-[0.16em] text-on-surface-variant mb-2">Hermes 建议</div>
+                <p class="font-body text-sm leading-relaxed text-on-surface-variant">
+                    让 Hermes 使用浏览器/转录/OCR 能力抓取完整内容，然后回写到 <code class="px-1 rounded bg-surface">PUT /api/entries/${escapeHtml(entry?.id || ':id')}/content</code>，之后再重新生成解读。
+                </p>
+            </div>
+        </div>
+    `;
+}
+
+function buildAnalysisFailedState(analysis, entry) {
+    return `
+        <div class="min-h-[300px] rounded-3xl border border-error/20 bg-error-container/20 p-8">
+            <h4 class="font-headline text-2xl text-on-surface mb-3">解读生成失败</h4>
+            <p class="font-body text-on-surface-variant leading-relaxed mb-6">${escapeHtml(analysis?.error || '未知错误')}</p>
+            <button type="button" data-analysis-action="generate" data-entry-id="${escapeHtml(entry?.id || '')}" class="inline-flex items-center gap-2 rounded-lg bg-primary text-on-primary px-5 py-3 font-body font-medium">
+                <span class="material-symbols-outlined text-[18px]">refresh</span>
+                重试生成
+            </button>
+        </div>
+    `;
+}
+
+function buildRealAnalysisMindMap(analysis, entry) {
+    const result = analysis?.result || {};
+    const mindMap = result.mind_map || {};
+    const nodes = Array.isArray(mindMap.nodes) ? mindMap.nodes.slice(0, 6) : [];
+    const chips = [
+        entry?.category,
+        getModalPlatformLabel(entry?.platform),
+        analysis?.token_budget === 'chunked' ? '分段解读' : '直接解读',
+        analysis?.source_kind,
+    ].filter(Boolean).slice(0, 4);
+
+    return `
+        <div class="rounded-3xl border border-primary/20 bg-[radial-gradient(circle_at_50%_12%,rgba(183,230,153,0.22),transparent_32%),linear-gradient(135deg,rgba(250,249,239,0.96),rgba(241,246,231,0.94))] p-5 md:p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+            <div class="rounded-3xl border border-primary/20 bg-surface-container-lowest px-5 py-4 text-center shadow-[0_18px_50px_rgba(28,28,22,0.08)] mb-5">
+                <div class="font-label text-[10px] uppercase tracking-[0.2em] text-primary mb-2">Real Content Analysis</div>
+                <div class="font-headline text-xl leading-tight text-on-surface">${escapeHtml(mindMap.root || result.title || entry?.title || '内容解读')}</div>
+                ${result.thesis ? `<p class="mt-3 font-body text-sm text-on-surface-variant leading-relaxed">${escapeHtml(result.thesis)}</p>` : ''}
+                <div class="mt-3 flex flex-wrap items-center justify-center gap-2">
+                    ${chips.map(chip => `<span class="px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-container text-xs font-label">${escapeHtml(chip)}</span>`).join('')}
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-3">
+                ${nodes.map((node, index) => `
+                    <article class="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest/95 p-4 shadow-[0_12px_32px_rgba(28,28,22,0.06)]">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="w-7 h-7 rounded-full ${index % 2 ? 'bg-primary-container text-primary' : 'bg-secondary-container text-on-secondary-container'} inline-flex items-center justify-center shrink-0">
+                                <span class="material-symbols-outlined text-[15px] leading-none">${index % 2 ? 'route' : 'tips_and_updates'}</span>
+                            </span>
+                            <h4 class="font-label text-xs uppercase tracking-[0.14em] text-on-surface-variant">${escapeHtml(node.label || '要点')}</h4>
+                        </div>
+                        ${node.summary ? `<p class="font-body text-sm text-on-surface-variant leading-relaxed mb-3">${escapeHtml(node.summary)}</p>` : ''}
+                        <ul class="space-y-3">
+                            ${(node.children || []).map(child => `
+                                <li class="font-body text-sm leading-snug text-on-surface">
+                                    <div class="flex gap-2">
+                                        <span class="mt-[0.45em] w-1.5 h-1.5 rounded-full bg-primary/70 shrink-0"></span>
+                                        <span>${escapeHtml(child.label || '知识点')}</span>
+                                    </div>
+                                    ${child.detail ? `<p class="pl-3 mt-1 text-on-surface-variant leading-relaxed">${escapeHtml(child.detail)}</p>` : ''}
+                                    ${child.evidence ? `<p class="pl-3 mt-1 text-xs text-on-surface-variant/75 leading-relaxed">证据：${escapeHtml(child.evidence)}</p>` : ''}
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </article>
+                `).join('')}
+            </div>
+
+            ${result.knowledge_points?.length ? `
+            <div class="mt-5 rounded-2xl bg-surface-container-lowest/80 border border-outline-variant/20 p-4">
+                <div class="font-label text-xs uppercase tracking-[0.16em] text-on-surface-variant mb-2">Knowledge Points</div>
+                <div class="flex flex-wrap gap-2">
+                    ${result.knowledge_points.map(point => `<span class="px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant text-xs font-label">${escapeHtml(point)}</span>`).join('')}
+                </div>
+            </div>` : ''}
+
+            ${result.limitations?.length ? `
+            <div class="mt-4 font-body text-xs leading-relaxed text-on-surface-variant/75">
+                ${result.limitations.map(item => `<div>限制：${escapeHtml(item)}</div>`).join('')}
+            </div>` : ''}
+        </div>
+    `;
 }
 
 function bindBookEntryInteractions(entries, book) {
@@ -125,6 +266,8 @@ function bindBookEntryInteractions(entries, book) {
         openBtn.href = entry.url || '#';
         openBtn.classList.toggle('pointer-events-none', !entry.url);
         openBtn.classList.toggle('opacity-50', !entry.url);
+        updateBookModalInsight(entry);
+        updateBookModalAnalysis(entry, book);
         list.querySelectorAll('.contained-entry').forEach(el => {
             el.classList.remove('active', 'border-primary/40', 'bg-surface-container-low');
             el.classList.add('border-outline-variant/20', 'bg-surface-container-lowest');
@@ -139,6 +282,64 @@ function bindBookEntryInteractions(entries, book) {
         button.addEventListener('dblclick', () => {
             if (entry?.url) window.open(entry.url, '_blank', 'noopener');
         });
+    });
+}
+
+function updateBookModalInsight(entry) {
+    const section = document.getElementById('bookModalInsightSection');
+    const text = document.getElementById('bookModalInsightText');
+    if (!section || !text) return;
+    section.classList.toggle('hidden', !entry?.summary);
+    text.innerHTML = escapeHtml(entry?.summary || '').replace(/\n/g, '<br/>');
+}
+
+async function updateBookModalAnalysis(entry, book) {
+    const container = document.getElementById('bookModalMindMap');
+    if (!container || !entry?.id) return;
+    const meta = document.getElementById('bookModalMindMapMeta');
+    if (meta) meta.textContent = getModalPlatformLabel(entry?.platform || book.platform);
+    container.innerHTML = buildAnalysisLoadingState('正在读取已有解读...');
+    try {
+        const res = await api.getEntryAnalysis(entry.id);
+        renderBookModalAnalysis(res.data, entry, book);
+    } catch (err) {
+        container.innerHTML = buildAnalysisEmptyState(entry);
+        bindAnalysisPanelAction(entry, book);
+    }
+}
+
+function renderBookModalAnalysis(analysis, entry, book) {
+    const container = document.getElementById('bookModalMindMap');
+    if (!container) return;
+
+    if (!analysis) {
+        container.innerHTML = buildAnalysisEmptyState(entry);
+    } else if (analysis.status === 'done') {
+        container.innerHTML = buildRealAnalysisMindMap(analysis, entry);
+    } else if (analysis.status === 'needs_content') {
+        container.innerHTML = buildAnalysisNeedsContentState(analysis, entry);
+    } else if (analysis.status === 'failed') {
+        container.innerHTML = buildAnalysisFailedState(analysis, entry);
+    } else {
+        container.innerHTML = buildAnalysisLoadingState('解读任务处理中...');
+    }
+    bindAnalysisPanelAction(entry, book);
+}
+
+function bindAnalysisPanelAction(entry, book) {
+    const button = document.querySelector('#bookModalMindMap [data-analysis-action="generate"]');
+    if (!button || !entry?.id) return;
+    button.addEventListener('click', async () => {
+        const container = document.getElementById('bookModalMindMap');
+        if (!container) return;
+        container.innerHTML = buildAnalysisLoadingState('正在生成真实内容解读...');
+        try {
+            const res = await api.analyzeEntry(entry.id, { force: true });
+            renderBookModalAnalysis(res.data, entry, book);
+        } catch (err) {
+            container.innerHTML = buildAnalysisFailedState({ error: err.message }, entry);
+            bindAnalysisPanelAction(entry, book);
+        }
     });
 }
 

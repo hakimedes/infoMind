@@ -11,6 +11,7 @@ const { parseUrl } = require('../services/parser');
 const { deriveZhihuMetadataFromText } = require('../services/parser/zhihu');
 const { classifyEntry } = require('../services/classifier');
 const { processBook } = require('../services/bookmaker');
+const { getEntryAnalysis, analyzeEntry } = require('../services/analyzer');
 
 async function downloadCover(coverUrl, sourceUrl) {
     if (!coverUrl) return null;
@@ -156,6 +157,50 @@ router.get('/', (req, res) => {
         res.json({ success: true, ...result });
     } catch (err) {
         logger.error('List entries error', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// GET /api/entries/:id/analysis - Get cached real content analysis
+router.get('/:id/analysis', (req, res) => {
+    const entry = queries.getEntryById(req.params.id);
+    if (!entry) return res.status(404).json({ success: false, error: 'Entry not found' });
+    const analysis = getEntryAnalysis(req.params.id);
+    res.json({ success: true, data: analysis });
+});
+
+// POST /api/entries/:id/analyze - Generate or refresh structured analysis
+router.post('/:id/analyze', async (req, res) => {
+    try {
+        const analysis = await analyzeEntry(req.params.id, { force: !!req.body?.force });
+        res.json({ success: true, data: analysis });
+    } catch (err) {
+        logger.error('Analyze entry error', err);
+        res.status(err.statusCode || 500).json({ success: false, error: err.message });
+    }
+});
+
+// PUT /api/entries/:id/content - Hermes/Agent can write extracted full text or transcript
+router.put('/:id/content', (req, res) => {
+    try {
+        const entry = queries.getEntryById(req.params.id);
+        if (!entry) return res.status(404).json({ success: false, error: 'Entry not found' });
+        const { full_text, transcript, content_source, content_url } = req.body || {};
+        const text = String(full_text || transcript || '').trim();
+        if (!text) return res.status(400).json({ success: false, error: 'full_text or transcript is required' });
+
+        const sourceData = {
+            ...(entry.source_data || {}),
+            full_text: full_text || entry.source_data?.full_text || null,
+            transcript: transcript || entry.source_data?.transcript || null,
+            content_source: content_source || 'hermes',
+            content_url: content_url || null,
+            content_updated_at: new Date().toISOString(),
+        };
+        const updated = queries.updateEntry(req.params.id, { source_data: sourceData });
+        res.json({ success: true, data: updated });
+    } catch (err) {
+        logger.error('Update entry content error', err);
         res.status(500).json({ success: false, error: err.message });
     }
 });

@@ -81,6 +81,7 @@ function updateEntry(id, data) {
     if (data.book_id !== undefined) { fields.push('book_id = ?'); params.push(data.book_id); }
     if (data.summary !== undefined) { fields.push('summary = ?'); params.push(data.summary); }
     if (data.title !== undefined) { fields.push('title = ?'); params.push(data.title); }
+    if (data.source_data !== undefined) { fields.push('source_data = ?'); params.push(JSON.stringify(data.source_data)); }
 
     if (!fields.length) return getEntryById(id);
     fields.push('updated_at = CURRENT_TIMESTAMP');
@@ -94,6 +95,7 @@ function deleteEntry(id) {
     const db = getDb();
     const entry = getEntryById(id);
     if (!entry) return false;
+    db.prepare('DELETE FROM entry_analysis WHERE entry_id = ?').run(id);
     db.prepare('DELETE FROM entries WHERE id = ?').run(id);
     // Update book count
     if (entry.book_id) {
@@ -108,6 +110,55 @@ function parseEntry(row) {
         author: cleanDisplayAuthor(row.author, row.platform),
         tags: safeJsonParse(row.tags, []),
         source_data: safeJsonParse(row.source_data, {}),
+    };
+}
+
+// ─── Entry Analysis ──────────────────────────────────────────────────────────
+
+function getEntryAnalysis(entryId) {
+    const db = getDb();
+    const row = db.prepare('SELECT * FROM entry_analysis WHERE entry_id = ?').get(entryId);
+    return row ? parseEntryAnalysis(row) : null;
+}
+
+function upsertEntryAnalysis(data) {
+    const db = getDb();
+    const existing = getEntryAnalysis(data.entry_id);
+    const id = existing?.id || data.id || uuidv4();
+    db.prepare(`
+        INSERT INTO entry_analysis (
+            id, entry_id, status, content_hash, source_kind, source_length,
+            model, token_budget, result_json, error, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(entry_id) DO UPDATE SET
+            status = excluded.status,
+            content_hash = excluded.content_hash,
+            source_kind = excluded.source_kind,
+            source_length = excluded.source_length,
+            model = excluded.model,
+            token_budget = excluded.token_budget,
+            result_json = excluded.result_json,
+            error = excluded.error,
+            updated_at = CURRENT_TIMESTAMP
+    `).run(
+        id,
+        data.entry_id,
+        data.status || 'pending',
+        data.content_hash || null,
+        data.source_kind || null,
+        data.source_length || 0,
+        data.model || null,
+        data.token_budget || 'medium',
+        JSON.stringify(data.result || {}),
+        data.error || null
+    );
+    return getEntryAnalysis(data.entry_id);
+}
+
+function parseEntryAnalysis(row) {
+    return {
+        ...row,
+        result: safeJsonParse(row.result_json, {}),
     };
 }
 
@@ -305,6 +356,7 @@ function collapseRepeatedText(text) {
 
 module.exports = {
     createEntry, getEntryById, getEntryByUrl, listEntries, searchEntries, updateEntry, deleteEntry,
+    getEntryAnalysis, upsertEntryAnalysis,
     findBook, createBook, updateBook, updateBookCount, listBooks, getBookById, getBookEntries,
     listCategories,
     getConfig, setConfig, getAllConfig,

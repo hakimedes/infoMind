@@ -36,7 +36,11 @@ function getLlmConfig() {
     return { apiKey, baseUrl, model, provider };
 }
 
-async function chat(messages, { temperature = 0.3, maxTokens = 1000 } = {}) {
+function getConfiguredModel() {
+    return getLlmConfig().model;
+}
+
+async function chat(messages, { temperature = 0.3, maxTokens = 1000, timeout = 30000 } = {}) {
     const { apiKey, baseUrl, model, provider } = getLlmConfig();
     if (!apiKey) throw new Error('LLM API key not configured. Please set it in Settings.');
 
@@ -53,7 +57,7 @@ async function chat(messages, { temperature = 0.3, maxTokens = 1000 } = {}) {
                     'anthropic-version': '2023-06-01',
                     'Content-Type': 'application/json',
                 },
-                timeout: 30000,
+                timeout,
             }
         );
         return response.data.content[0]?.text || '';
@@ -68,7 +72,7 @@ async function chat(messages, { temperature = 0.3, maxTokens = 1000 } = {}) {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
             },
-            timeout: 30000,
+            timeout,
         }
     );
 
@@ -136,4 +140,4 @@ async function testLlmConnection() {
     return { model, baseUrl, latency, response: response.trim() };
 }
 
-module.exports = { chat, classify, generateBookTitle, testLlmConnection };
+module.exports = { chat, classify, generateBookTitle, testLlmConnection, getConfiguredModel };

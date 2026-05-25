@@ -191,6 +191,9 @@ Treemap 面积按收藏频次计算：
 | `GET` | `/api/entries/:id` | 获取单条收录 |
 | `PUT` | `/api/entries/:id` | 更新收录 |
 | `DELETE` | `/api/entries/:id` | 删除收录 |
+| `GET` | `/api/entries/:id/analysis` | 获取当前条目的结构化解读结果 |
+| `POST` | `/api/entries/:id/analyze` | 基于真实正文/转录生成并缓存思维导图 |
+| `PUT` | `/api/entries/:id/content` | Agent/Hermes 回写正文、字幕或转录文本 |
 | `GET` | `/api/books` | 列出作者聚合书籍 |
 | `GET` | `/api/books/:id` | 获取书籍及其条目 |
 | `GET` | `/api/categories` | 获取 25 个分类及统计 |

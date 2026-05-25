@@ -56,3 +56,42 @@ GET http://localhost:3456/api/entries?category={{分类名}}&limit=10
 GET http://localhost:3456/api/stats
 
 向用户汇报总条目数、书架数量、分类情况等。
+
+## 深度内容解读与思维导图
+
+InfoMind 负责保存结构化解读结果。Agent 只在需要时负责抓取真实正文、字幕或转录文本。
+
+如果用户要求“深度解读/生成思维导图/分析这篇内容”，先检查：
+
+GET http://localhost:3456/api/entries/{{entry_id}}/analysis
+
+如果返回 `needs_content`，说明 InfoMind 只有标题、封面或简介，不能可信生成导图。此时需要：
+
+1. 打开原文链接，提取真实正文、字幕、播客文稿或可见帖子正文。
+2. 将内容写回：
+
+PUT http://localhost:3456/api/entries/{{entry_id}}/content
+Content-Type: application/json
+
+{
+  "full_text": "{{正文或帖子内容}}",
+  "content_source": "agent"
+}
+
+视频/播客字幕使用：
+
+{
+  "transcript": "{{字幕或转录文本}}",
+  "content_source": "agent-transcript"
+}
+
+3. 再触发：
+
+POST http://localhost:3456/api/entries/{{entry_id}}/analyze
+Content-Type: application/json
+
+{
+  "force": true
+}
+
+不要把长视频或长播客的完整转录直接发给用户；写回 InfoMind，由 InfoMind 分段解读，控制 token 消耗。

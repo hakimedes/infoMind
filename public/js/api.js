@@ -32,6 +32,8 @@ class ApiClient {
     searchEntries(q) { return this.get(`/api/entries/search?q=${encodeURIComponent(q)}`); }
     deleteEntry(id) { return this.del(`/api/entries/${id}`); }
     updateEntry(id, data) { return this.put(`/api/entries/${id}`, data); }
+    getEntryAnalysis(id) { return this.get(`/api/entries/${id}/analysis`); }
+    analyzeEntry(id, data = {}) { return this.post(`/api/entries/${id}/analyze`, data); }
 
     // Books
     listBooks(params = {}) {

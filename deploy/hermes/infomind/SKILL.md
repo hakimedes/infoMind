@@ -109,3 +109,51 @@ curl -s "$INFOMIND_BASE_URL/api/books/<book_id>"
 ```
 
 Use book entries to suggest what to read next or summarize a creator's saved material.
+
+## Deep Content Capture for Mind Maps
+
+InfoMind owns durable analysis results. Hermes should act as the optional capture worker when InfoMind says an entry needs more content.
+
+When the user asks to deeply analyze a saved entry, or InfoMind returns `status: "needs_content"` from:
+
+```bash
+curl -s "$INFOMIND_BASE_URL/api/entries/<entry_id>/analysis"
+```
+
+do this:
+
+1. Open or fetch the original URL using the best available Hermes/browser capability.
+2. Extract real content, not just title metadata:
+   - blogs/articles: main article body
+   - videos: captions/transcript when available; otherwise ask before doing audio transcription
+   - podcasts: transcript/show notes when available; otherwise ask before doing audio transcription
+   - 小红书/知乎/dynamic pages: browser-visible正文, OCR text if relevant and available
+3. Write the extracted content back to InfoMind:
+
+```bash
+curl -s -X PUT "$INFOMIND_BASE_URL/api/entries/<entry_id>/content" \
+  -H "Content-Type: application/json" \
+  -d '{"full_text":"<extracted article body or transcript>","content_source":"hermes"}'
+```
+
+For audio/video transcript, use:
+
+```bash
+curl -s -X PUT "$INFOMIND_BASE_URL/api/entries/<entry_id>/content" \
+  -H "Content-Type: application/json" \
+  -d '{"transcript":"<caption or transcript text>","content_source":"hermes-transcript"}'
+```
+
+4. Trigger structured analysis:
+
+```bash
+curl -s -X POST "$INFOMIND_BASE_URL/api/entries/<entry_id>/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"force":true}'
+```
+
+Important token policy:
+
+- Do not paste a full long video transcript into the chat response.
+- Prefer writing transcript/content to InfoMind, then let InfoMind run its chunked analysis pipeline.
+- For long videos or podcasts without captions, ask the user before spending transcription time/cost.
