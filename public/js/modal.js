@@ -10,7 +10,7 @@ function openBookModal(bookId) {
     api.getBook(bookId).then(res => {
         const book = res.data;
         const entries = book.entries || [];
-        const platformLabel = book.platform || 'web';
+        const platformLabel = getModalPlatformLabel(book.platform);
         const initialEntry = entries[0] || book;
         const displayTitle = initialEntry.title || book.latest_entry_title || book.title || '无标题';
         
@@ -33,7 +33,7 @@ function openBookModal(bookId) {
                 ${escapeHtml(book.category)}
             </span>
             <span class="inline-flex items-center px-3 py-1 rounded-full bg-surface-container-highest text-on-surface-variant font-label text-sm">
-                ${platformLabel}
+                ${escapeHtml(platformLabel)}
             </span>
             <span class="inline-flex items-center px-3 py-1 rounded-full bg-surface-container-highest text-on-surface-variant font-label text-sm">
                 ${entries.length} Entries
@@ -179,7 +179,7 @@ function openEntryModal(entry) {
                 ${escapeHtml(entry.category)}
             </span>
             <span class="inline-flex items-center px-3 py-1 rounded-full bg-surface-container-highest text-on-surface-variant font-label text-sm">
-                ${entry.platform || 'web'}
+                ${escapeHtml(getModalPlatformLabel(entry.platform))}
             </span>
         </div>
         <div class="flex flex-wrap items-center justify-center gap-2">
@@ -231,6 +231,11 @@ function openEntryModal(entry) {
     </div>
 </div>
     `;
+}
+
+function getModalPlatformLabel(platform) {
+    if (typeof PLATFORM_LABELS !== 'undefined' && PLATFORM_LABELS[platform]) return PLATFORM_LABELS[platform];
+    return platform || 'web';
 }
 
 function confirmDeleteBook(bookId) {

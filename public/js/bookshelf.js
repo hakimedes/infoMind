@@ -5,6 +5,7 @@ const PLATFORM_META = {
     twitter: { label: 'X', icon: 'alternate_email' },
     xiaohongshu: { label: '小红书', icon: 'auto_awesome' },
     zhihu: { label: '知乎', icon: 'help' },
+    xiaoyuzhou: { label: '小宇宙', icon: 'podcasts' },
     wechat: { label: '公众号', icon: 'chat' },
     weibo: { label: '微博', icon: 'public' },
     web: { label: '网页', icon: 'language' },
@@ -44,7 +45,7 @@ function getCategoryMeta(category) {
 }
 
 function getPlatformColor(platform) {
-    const colors = { bilibili: '#00a1d6', youtube: '#ff0000', twitter: '#1d9bf0', xiaohongshu: '#ff2442', zhihu: '#0084ff', wechat: '#07c160', weibo: '#e6162d' };
+    const colors = { bilibili: '#00a1d6', youtube: '#ff0000', twitter: '#1d9bf0', xiaohongshu: '#ff2442', zhihu: '#0084ff', xiaoyuzhou: '#f5c400', wechat: '#07c160', weibo: '#e6162d' };
     return colors[platform] || '#6b7280';
 }
 

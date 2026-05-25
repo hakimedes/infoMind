@@ -20,6 +20,7 @@ const PLATFORM_META = {
     twitter: { label: 'X', icon: 'x', color: '#111111' },
     youtube: { label: 'YouTube', icon: 'youtube', color: '#ff0033' },
     zhihu: { label: '知乎', icon: 'zhihu', color: '#0084ff' },
+    xiaoyuzhou: { label: '小宇宙', icon: 'xiaoyuzhou', color: '#f5c400' },
     weibo: { label: '微博', icon: 'weibo', color: '#e6162d' },
     web: { label: 'Web', icon: 'favicon', color: '#64748b' },
 };

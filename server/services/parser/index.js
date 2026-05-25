@@ -5,6 +5,7 @@ const { youtubeParse } = require('./youtube');
 const { twitterParse } = require('./twitter');
 const { xiaohongshuParse } = require('./xiaohongshu');
 const { zhihuParse } = require('./zhihu');
+const { xiaoyuzhouParse } = require('./xiaoyuzhou');
 const logger = require('../../utils/logger');
 
 const PARSERS = {
@@ -13,6 +14,7 @@ const PARSERS = {
     twitter: twitterParse,
     xiaohongshu: xiaohongshuParse,
     zhihu: zhihuParse,
+    xiaoyuzhou: xiaoyuzhouParse,
 };
 
 async function parseUrl(url) {

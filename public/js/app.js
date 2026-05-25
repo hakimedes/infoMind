@@ -24,6 +24,7 @@ const DASHBOARD_PLATFORM_META = {
     twitter: { label: 'X', color: '#111111', logo: 'https://x.com/favicon.ico' },
     youtube: { label: 'YouTube', color: '#ff0033', logo: 'https://www.youtube.com/favicon.ico' },
     zhihu: { label: '知乎', color: '#0084ff', logo: 'https://static.zhihu.com/heifetz/favicon.ico' },
+    xiaoyuzhou: { label: '小宇宙', color: '#f5c400', logo: 'https://www.xiaoyuzhoufm.com/favicon-32x32.png' },
     weibo: { label: '微博', color: '#e6162d', logo: 'https://weibo.com/favicon.ico' },
     web: { label: '网页', color: '#64748b', logo: '' },
 };

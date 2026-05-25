@@ -67,6 +67,7 @@ function detectPlatform(url) {
     if (u.includes('youtube.com') || u.includes('youtu.be')) return 'youtube';
     if (u.includes('xiaohongshu.com') || u.includes('xhslink.com')) return 'xiaohongshu';
     if (u.includes('zhihu.com')) return 'zhihu';
+    if (u.includes('xiaoyuzhoufm.com') || u.includes('xiaoyuzhou.com')) return 'xiaoyuzhou';
     if (u.includes('mp.weixin.qq.com')) return 'wechat';
     if (u.includes('weibo.com')) return 'weibo';
     return 'web';
