@@ -34,6 +34,7 @@ class ApiClient {
     updateEntry(id, data) { return this.put(`/api/entries/${id}`, data); }
     getEntryAnalysis(id) { return this.get(`/api/entries/${id}/analysis`); }
     analyzeEntry(id, data = {}) { return this.post(`/api/entries/${id}/analyze`, data); }
+    transcribeEntry(id, data = {}) { return this.post(`/api/entries/${id}/transcribe`, data); }
 
     // Books
     listBooks(params = {}) {

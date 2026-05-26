@@ -65,6 +65,7 @@ function initDb() {
     // Execute schema
     const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
     db.exec(schema);
+    ensureMigrations();
 
     // Seed categories if not already present
     const count = db.prepare('SELECT COUNT(*) as c FROM categories').get().c;
@@ -83,6 +84,21 @@ function initDb() {
 
     logger.success(`Database ready: ${DB_PATH}`);
     return db;
+}
+
+function ensureMigrations() {
+    const entryAnalysisColumns = new Set(
+        db.prepare('PRAGMA table_info(entry_analysis)').all().map(column => column.name)
+    );
+    const migrations = [
+        ['progress', 'ALTER TABLE entry_analysis ADD COLUMN progress INTEGER DEFAULT 0'],
+        ['stage', 'ALTER TABLE entry_analysis ADD COLUMN stage TEXT'],
+        ['started_at', 'ALTER TABLE entry_analysis ADD COLUMN started_at DATETIME'],
+        ['finished_at', 'ALTER TABLE entry_analysis ADD COLUMN finished_at DATETIME'],
+    ];
+    for (const [column, sql] of migrations) {
+        if (!entryAnalysisColumns.has(column)) db.exec(sql);
+    }
 }
 
 module.exports = { initDb, getDb };

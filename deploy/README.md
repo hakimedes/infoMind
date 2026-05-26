@@ -94,6 +94,21 @@ cp .env.production.example .env.production
 
 编辑 `.env.production`。重点是 `INFOMIND_SECRET`：如果你本地曾经配置过自定义 `INFOMIND_SECRET`，服务器必须使用同一个值，否则数据库里已加密保存的配置，例如 LLM API Key，可能无法正确解密。
 
+如果需要处理没有字幕的 B站/YouTube 视频，把 whisper.cpp 模型放到服务器数据目录：
+
+```bash
+mkdir -p ~/infoMind/data/models
+# 上传或下载 ggml-base.bin 到 ~/infoMind/data/models/ggml-base.bin
+```
+
+对应 `.env.production` 默认配置：
+
+```bash
+INFOMIND_STT_MODEL_PATH=/app/data/models/ggml-base.bin
+INFOMIND_STT_LANGUAGE=auto
+INFOMIND_STT_MAX_DURATION=7200
+```
+
 ### 4. 启动 InfoMind
 
 在服务器上执行：

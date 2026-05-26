@@ -94,4 +94,13 @@ Content-Type: application/json
   "force": true
 }
 
+对于没有字幕的 Bilibili/YouTube 内容，也可以直接触发 InfoMind 内置的本地转写流水线：
+
+POST http://localhost:3456/api/entries/{{entry_id}}/transcribe
+Content-Type: application/json
+
+{
+  "force": true
+}
+
 不要把长视频或长播客的完整转录直接发给用户；写回 InfoMind，由 InfoMind 分段解读，控制 token 消耗。

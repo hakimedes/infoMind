@@ -11,7 +11,7 @@ const { parseUrl } = require('../services/parser');
 const { deriveZhihuMetadataFromText } = require('../services/parser/zhihu');
 const { classifyEntry } = require('../services/classifier');
 const { processBook } = require('../services/bookmaker');
-const { getEntryAnalysis, analyzeEntry } = require('../services/analyzer');
+const { getEntryAnalysis, startEntryAnalysis } = require('../services/analyzer');
 
 async function downloadCover(coverUrl, sourceUrl) {
     if (!coverUrl) return null;
@@ -169,13 +169,24 @@ router.get('/:id/analysis', (req, res) => {
     res.json({ success: true, data: analysis });
 });
 
-// POST /api/entries/:id/analyze - Generate or refresh structured analysis
+// POST /api/entries/:id/analyze - Queue structured analysis in the background
 router.post('/:id/analyze', async (req, res) => {
     try {
-        const analysis = await analyzeEntry(req.params.id, { force: !!req.body?.force });
+        const analysis = startEntryAnalysis(req.params.id, { force: !!req.body?.force });
         res.json({ success: true, data: analysis });
     } catch (err) {
         logger.error('Analyze entry error', err);
+        res.status(err.statusCode || 500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/entries/:id/transcribe - Queue video transcription + analysis
+router.post('/:id/transcribe', async (req, res) => {
+    try {
+        const analysis = startEntryAnalysis(req.params.id, { force: !!req.body?.force });
+        res.json({ success: true, data: analysis });
+    } catch (err) {
+        logger.error('Transcribe entry error', err);
         res.status(err.statusCode || 500).json({ success: false, error: err.message });
     }
 });

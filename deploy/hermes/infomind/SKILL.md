@@ -125,7 +125,7 @@ do this:
 1. Open or fetch the original URL using the best available Hermes/browser capability.
 2. Extract real content, not just title metadata:
    - blogs/articles: main article body
-   - videos: captions/transcript when available; otherwise ask before doing audio transcription
+   - videos: captions/transcript when available; InfoMind can also trigger local whisper.cpp transcription when captions are missing
    - podcasts: transcript/show notes when available; otherwise ask before doing audio transcription
    - 小红书/知乎/dynamic pages: browser-visible正文, OCR text if relevant and available
 3. Write the extracted content back to InfoMind:
@@ -144,10 +144,18 @@ curl -s -X PUT "$INFOMIND_BASE_URL/api/entries/<entry_id>/content" \
   -d '{"transcript":"<caption or transcript text>","content_source":"hermes-transcript"}'
 ```
 
-4. Trigger structured analysis:
+4. Trigger structured analysis. InfoMind runs this in the background and reports progress from the analysis endpoint:
 
 ```bash
 curl -s -X POST "$INFOMIND_BASE_URL/api/entries/<entry_id>/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"force":true}'
+```
+
+For Bilibili/YouTube entries without captions, explicitly trigger the same local transcription pipeline:
+
+```bash
+curl -s -X POST "$INFOMIND_BASE_URL/api/entries/<entry_id>/transcribe" \
   -H "Content-Type: application/json" \
   -d '{"force":true}'
 ```
@@ -156,4 +164,4 @@ Important token policy:
 
 - Do not paste a full long video transcript into the chat response.
 - Prefer writing transcript/content to InfoMind, then let InfoMind run its chunked analysis pipeline.
-- For long videos or podcasts without captions, ask the user before spending transcription time/cost.
+- For long videos or podcasts without captions, prefer InfoMind's background transcription endpoint when the local Whisper model is enabled.

@@ -1,18 +1,21 @@
-// server/services/analyzer.js
 const crypto = require('crypto');
 const { chat, getConfiguredModel } = require('./llm');
 const { extractEntryContent } = require('./contentExtractor');
+const { ensureVideoTranscript, isVideoPlatform } = require('./videoTranscript');
 const queries = require('../db/queries');
+const logger = require('../utils/logger');
 
 const DIRECT_ANALYSIS_CHARS = 12000;
 const MAX_ANALYSIS_CHARS = 36000;
 const CHUNK_SIZE = 5200;
+const activeJobs = new Map();
+let analysisQueue = Promise.resolve();
 
 function getEntryAnalysis(entryId) {
     return queries.getEntryAnalysis(entryId);
 }
 
-async function analyzeEntry(entryId, { force = false } = {}) {
+function startEntryAnalysis(entryId, { force = false } = {}) {
     const entry = queries.getEntryById(entryId);
     if (!entry) {
         const err = new Error('Entry not found');
@@ -20,46 +23,66 @@ async function analyzeEntry(entryId, { force = false } = {}) {
         throw err;
     }
 
-    const extracted = await extractEntryContent(entry);
-    const contentHash = hashContent(extracted.text);
+    const existing = queries.getEntryAnalysis(entryId);
+    if (!force && existing?.status === 'done') return existing;
+    if (activeJobs.has(entryId)) return existing || markProcessing(entry, 2, '排队中');
+
+    const status = markProcessing(entry, 2, '排队中');
+    const job = analysisQueue.then(() => runEntryAnalysisNow(entryId, { force }))
+        .catch(err => {
+            logger.error(`Background analysis failed for ${entryId}`, err);
+            markFailed(entryId, entry, err, 100, '生成失败');
+        })
+        .finally(() => activeJobs.delete(entryId));
+    analysisQueue = job.catch(() => {});
+    activeJobs.set(entryId, job);
+    return status;
+}
+
+async function runEntryAnalysisNow(entryId, { force = false } = {}) {
+    let entry = queries.getEntryById(entryId);
+    if (!entry) {
+        const err = new Error('Entry not found');
+        err.statusCode = 404;
+        throw err;
+    }
+
+    await updateProgress(entry, 8, '准备正文');
+    if (force && isVideoPlatform(entry.platform)) {
+        const transcript = await ensureVideoTranscript(entry, (progress, stage) => updateProgress(entry, progress, stage), { force: true });
+        if (transcript.ok) {
+            entry = queries.getEntryById(entryId);
+        } else {
+            const currentExtracted = await extractEntryContent(entry);
+            return markNeedsContent(entry, currentExtracted, transcript.reason || currentExtracted.reason, transcript);
+        }
+    }
+
+    let extracted = await extractEntryContent(entry);
+    let contentHash = hashContent(extracted.text);
     const existing = queries.getEntryAnalysis(entryId);
     if (!force && existing?.status === 'done' && existing.content_hash === contentHash) {
         return existing;
     }
 
-    if (!extracted.hasEnoughContent) {
-        return queries.upsertEntryAnalysis({
-            entry_id: entryId,
-            status: 'needs_content',
-            content_hash: contentHash,
-            source_kind: extracted.sourceKind,
-            source_length: extracted.sourceLength,
-            model: getConfiguredModel(),
-            token_budget: 'none',
-            result: {
-                title: entry.title || '无标题',
-                reason: extracted.reason,
-                required_content: getRequiredContent(entry.platform),
-                mind_map: null,
-            },
-            error: extracted.reason,
-        });
+    if (!extracted.hasEnoughContent && isVideoPlatform(entry.platform)) {
+        const transcript = await ensureVideoTranscript(entry, (progress, stage) => updateProgress(entry, progress, stage), { force });
+        if (transcript.ok) {
+            entry = queries.getEntryById(entryId);
+            extracted = await extractEntryContent(entry);
+            contentHash = hashContent(extracted.text);
+        } else {
+            return markNeedsContent(entry, extracted, transcript.reason || extracted.reason, transcript);
+        }
     }
 
-    queries.upsertEntryAnalysis({
-        entry_id: entryId,
-        status: 'processing',
-        content_hash: contentHash,
-        source_kind: extracted.sourceKind,
-        source_length: extracted.sourceLength,
-        model: getConfiguredModel(),
-        token_budget: selectTokenBudget(extracted.sourceLength),
-        result: {},
-        error: null,
-    });
+    if (!extracted.hasEnoughContent) {
+        return markNeedsContent(entry, extracted, extracted.reason);
+    }
 
+    await updateProgress(entry, 28, '生成结构化导图');
     try {
-        const result = await generateStructuredAnalysis(entry, extracted.text);
+        const result = await generateStructuredAnalysis(entry, extracted.text, (progress, stage) => updateProgress(entry, progress, stage));
         return queries.upsertEntryAnalysis({
             entry_id: entryId,
             status: 'done',
@@ -68,36 +91,32 @@ async function analyzeEntry(entryId, { force = false } = {}) {
             source_length: extracted.sourceLength,
             model: getConfiguredModel(),
             token_budget: selectTokenBudget(extracted.sourceLength),
+            progress: 100,
+            stage: '完成',
             result,
             error: null,
+            finished_at: new Date().toISOString(),
         });
     } catch (err) {
-        return queries.upsertEntryAnalysis({
-            entry_id: entryId,
-            status: 'failed',
-            content_hash: contentHash,
-            source_kind: extracted.sourceKind,
-            source_length: extracted.sourceLength,
-            model: getConfiguredModel(),
-            token_budget: selectTokenBudget(extracted.sourceLength),
-            result: {},
-            error: err.message,
-        });
+        return markFailed(entryId, entry, err, 100, '生成失败', extracted, contentHash);
     }
 }
 
-async function generateStructuredAnalysis(entry, text) {
+async function generateStructuredAnalysis(entry, text, progress = async () => {}) {
     const clipped = text.slice(0, MAX_ANALYSIS_CHARS);
     if (clipped.length <= DIRECT_ANALYSIS_CHARS) {
-        return generateFinalMindMap(entry, clipped, []);
+        await progress(55, '提炼观点');
+        return generateFinalMindMap(entry, clipped, [], progress);
     }
 
     const chunks = chunkText(clipped, CHUNK_SIZE);
     const chunkSummaries = [];
     for (let i = 0; i < chunks.length; i += 1) {
+        await progress(32 + Math.round((i / chunks.length) * 38), `分段摘要 ${i + 1}/${chunks.length}`);
         chunkSummaries.push(await summarizeChunk(entry, chunks[i], i + 1, chunks.length));
     }
-    return generateFinalMindMap(entry, chunkSummaries.join('\n\n'), chunkSummaries);
+    await progress(76, '合并分段观点');
+    return generateFinalMindMap(entry, chunkSummaries.map(item => JSON.stringify(item)).join('\n\n'), chunkSummaries, progress);
 }
 
 async function summarizeChunk(entry, chunk, index, total) {
@@ -118,11 +137,21 @@ ${chunk}
   "evidence": ["支撑材料或原文线索1", "支撑材料或原文线索2"],
   "questions": ["值得继续追问的问题"]
 }`;
-    const text = await chat([{ role: 'user', content: prompt }], { temperature: 0.2, maxTokens: 900, timeout: 90000 });
-    return JSON.stringify(parseJsonObject(text));
+    try {
+        const text = await chat([{ role: 'user', content: prompt }], { temperature: 0.2, maxTokens: 900, timeout: 90000 });
+        return await parseJsonObjectWithRepair(text, '分段摘要 JSON');
+    } catch (err) {
+        return {
+            segment: `${index}/${total}`,
+            claims: [`本段解析失败，已跳过：${friendlyAnalysisError(err)}`],
+            knowledge_points: [],
+            evidence: [],
+            questions: [],
+        };
+    }
 }
 
-async function generateFinalMindMap(entry, content, chunkSummaries = []) {
+async function generateFinalMindMap(entry, content, chunkSummaries = [], progress = async () => {}) {
     const prompt = `你是一个严谨的知识管理分析器。请基于给定内容生成“真实内容解读思维导图”，用于个人知识库详情页展示。
 
 要求：
@@ -169,17 +198,45 @@ JSON 结构：
   "limitations": ["如果内容不足或存在限制，在这里说明"]
 }`;
 
-    const response = await chat([{ role: 'user', content: prompt }], { temperature: 0.25, maxTokens: 2200, timeout: 90000 });
-    return normalizeAnalysisResult(parseJsonObject(response), entry);
+    await progress(84, '生成最终导图');
+    const response = await chat([{ role: 'user', content: prompt }], { temperature: 0.25, maxTokens: 2600, timeout: 90000 });
+    const parsed = await parseJsonObjectWithRepair(response, '思维导图 JSON');
+    return normalizeAnalysisResult(parsed, entry);
+}
+
+async function parseJsonObjectWithRepair(text, purpose) {
+    const first = parseJsonObject(text);
+    if (first.ok) return first.value;
+
+    const prompt = `请修复下面这段${purpose}，只返回合法 JSON，不要解释。不要改写字段含义。
+
+原始内容：
+${String(text || '').slice(0, 12000)}`;
+    const repaired = await chat([{ role: 'user', content: prompt }], { temperature: 0, maxTokens: 2800, timeout: 90000 });
+    const second = parseJsonObject(repaired);
+    if (second.ok) return second.value;
+    throw new Error('LLM returned malformed analysis JSON after repair');
+}
+
+function parseJsonObject(text) {
+    const cleaned = String(text || '').replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+    const start = cleaned.indexOf('{');
+    if (start < 0) return { ok: false };
+    const candidate = extractBalancedJson(cleaned, start) || cleaned.slice(start, cleaned.lastIndexOf('}') + 1);
+    try {
+        return { ok: true, value: JSON.parse(candidate) };
+    } catch {
+        return { ok: false };
+    }
 }
 
 function normalizeAnalysisResult(result, entry) {
     const nodes = Array.isArray(result?.mind_map?.nodes) ? result.mind_map.nodes : [];
     return {
-        title: result.title || entry.title || '无标题',
-        thesis: result.thesis || '',
+        title: result?.title || entry.title || '无标题',
+        thesis: result?.thesis || '',
         mind_map: {
-            root: result?.mind_map?.root || result.title || entry.title || '内容解读',
+            root: result?.mind_map?.root || result?.title || entry.title || '内容解读',
             nodes: nodes.slice(0, 6).map(node => ({
                 label: String(node.label || '要点').slice(0, 40),
                 summary: String(node.summary || '').slice(0, 140),
@@ -192,17 +249,112 @@ function normalizeAnalysisResult(result, entry) {
                     : [],
             })),
         },
-        knowledge_points: Array.isArray(result.knowledge_points) ? result.knowledge_points.slice(0, 8) : [],
-        questions: Array.isArray(result.questions) ? result.questions.slice(0, 5) : [],
-        content_coverage: result.content_coverage || '基于当前可获取正文生成',
-        limitations: Array.isArray(result.limitations) ? result.limitations.slice(0, 4) : [],
+        knowledge_points: Array.isArray(result?.knowledge_points) ? result.knowledge_points.slice(0, 8) : [],
+        questions: Array.isArray(result?.questions) ? result.questions.slice(0, 5) : [],
+        content_coverage: result?.content_coverage || '基于当前可获取正文生成',
+        limitations: Array.isArray(result?.limitations) ? result.limitations.slice(0, 4) : [],
     };
 }
 
-function parseJsonObject(text) {
-    const match = String(text || '').match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('Invalid LLM analysis response');
-    return JSON.parse(match[0]);
+function markProcessing(entry, progress, stage) {
+    return queries.upsertEntryAnalysis({
+        entry_id: entry.id,
+        status: 'processing',
+        content_hash: null,
+        source_kind: null,
+        source_length: 0,
+        model: getConfiguredModel(),
+        token_budget: 'pending',
+        progress,
+        stage,
+        result: { title: entry.title || '无标题' },
+        error: null,
+        started_at: new Date().toISOString(),
+        finished_at: null,
+    });
+}
+
+async function updateProgress(entry, progress, stage) {
+    const existing = queries.getEntryAnalysis(entry.id);
+    const nextProgress = Math.max(Number(existing?.progress || 0), Number(progress || 0));
+    queries.upsertEntryAnalysis({
+        entry_id: entry.id,
+        status: 'processing',
+        model: getConfiguredModel(),
+        token_budget: 'pending',
+        progress: nextProgress,
+        stage,
+        result: { title: entry.title || '无标题' },
+        error: null,
+        started_at: new Date().toISOString(),
+        finished_at: null,
+    });
+}
+
+function markNeedsContent(entry, extracted, reason, details = {}) {
+    return queries.upsertEntryAnalysis({
+        entry_id: entry.id,
+        status: 'needs_content',
+        content_hash: hashContent(extracted.text),
+        source_kind: extracted.sourceKind,
+        source_length: extracted.sourceLength,
+        model: getConfiguredModel(),
+        token_budget: 'none',
+        progress: 100,
+        stage: '需要更多正文',
+        result: {
+            title: entry.title || '无标题',
+            reason,
+            required_content: getRequiredContent(entry.platform),
+            setup_action: details.setup_action || null,
+            setup_command: details.setup_command || null,
+            missing_tools: details.missing_tools || null,
+            model_path: details.model_path || null,
+            mind_map: null,
+        },
+        error: reason,
+        finished_at: new Date().toISOString(),
+    });
+}
+
+function markFailed(entryId, entry, err, progress = 100, stage = '生成失败', extracted = null, contentHash = null) {
+    return queries.upsertEntryAnalysis({
+        entry_id: entryId,
+        status: 'failed',
+        content_hash: contentHash || null,
+        source_kind: extracted?.sourceKind || null,
+        source_length: extracted?.sourceLength || 0,
+        model: getConfiguredModel(),
+        token_budget: extracted ? selectTokenBudget(extracted.sourceLength) : 'unknown',
+        progress,
+        stage,
+        result: { title: entry?.title || '无标题' },
+        error: friendlyAnalysisError(err),
+        finished_at: new Date().toISOString(),
+    });
+}
+
+function friendlyAnalysisError(err) {
+    const message = String(err?.message || err || '未知错误');
+    if (/malformed|Invalid LLM|JSON|parse/i.test(message)) return '模型返回的解读格式不完整，已尝试自动修复但仍失败。请重试生成。';
+    return message;
+}
+
+function extractBalancedJson(text, start) {
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    for (let i = start; i < text.length; i += 1) {
+        const char = text[i];
+        if (escape) { escape = false; continue; }
+        if (char === '\\') { escape = true; continue; }
+        if (char === '"') inString = !inString;
+        if (inString) continue;
+        if (char === '{') depth += 1;
+        if (char === '}') depth -= 1;
+        if (depth === 0) return text.slice(start, i + 1);
+    }
+    return null;
 }
 
 function chunkText(text, size) {
@@ -227,4 +379,4 @@ function getRequiredContent(platform) {
     return '正文内容或可读网页文本';
 }
 
-module.exports = { getEntryAnalysis, analyzeEntry };
+module.exports = { getEntryAnalysis, startEntryAnalysis, runEntryAnalysisNow };

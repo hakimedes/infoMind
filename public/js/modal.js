@@ -1,4 +1,9 @@
 // public/js/modal.js - Book and entry detail modals
+let currentBookModalEntry = null;
+let currentBookModalBook = null;
+let bookModalAnalysisSeq = 0;
+const analysisDockJobs = new Map();
+let analysisDockTimer = null;
 
 function openBookModal(bookId) {
     const overlay = document.getElementById('modalOverlay');
@@ -12,6 +17,8 @@ function openBookModal(bookId) {
         const entries = book.entries || [];
         const platformLabel = getModalPlatformLabel(book.platform);
         const initialEntry = entries[0] || book;
+        currentBookModalEntry = initialEntry;
+        currentBookModalBook = book;
         const displayTitle = initialEntry.title || book.latest_entry_title || book.title || '无标题';
         
         const coverHtml = buildModalCover(initialEntry, displayTitle);
@@ -44,8 +51,8 @@ function openBookModal(bookId) {
         <a id="bookModalOpenOriginal" href="${escapeHtml(openOriginalHref)}" target="_blank" class="w-full flex items-center justify-center gap-2 bg-primary text-on-primary py-3 px-6 rounded-lg font-body font-medium transition-colors hover:bg-primary-container ${openOriginalDisabled ? 'pointer-events-none opacity-50' : ''}">
             <span class="material-symbols-outlined">menu_book</span> Open Original
         </a>
-        <button onclick="confirmDeleteBook('${bookId}')" class="w-full flex items-center justify-center gap-2 bg-transparent text-error py-3 px-6 rounded-lg font-body font-medium transition-colors hover:bg-error-container hover:text-on-error-container">
-            <span class="material-symbols-outlined">delete</span> Delete Book
+        <button id="bookModalDeleteEntry" type="button" class="w-full flex items-center justify-center gap-2 bg-transparent text-error py-3 px-6 rounded-lg font-body font-medium transition-colors hover:bg-error-container hover:text-on-error-container">
+            <span class="material-symbols-outlined">delete</span> Delete Entry
         </button>
     </div>
 </div>
@@ -106,6 +113,7 @@ function openBookModal(bookId) {
         `;
 
         bindBookEntryInteractions(entries, book);
+        bindBookDeleteButton(book);
         updateBookModalAnalysis(initialEntry, book);
     }).catch(err => {
         content.innerHTML = `<div style="padding:40px;text-align:center;color:#ba1a1a">加载失败: ${escapeHtml(err.message)}</div>`;
@@ -131,6 +139,34 @@ function buildAnalysisLoadingState(message = '正在生成真实内容解读...'
     `;
 }
 
+function buildAnalysisProgressState(analysis, entry) {
+    const progress = Math.max(3, Math.min(99, Number(analysis?.progress || 8)));
+    const stage = analysis?.stage || '任务处理中';
+    return `
+        <div class="min-h-[320px] rounded-3xl border border-primary/15 bg-surface-container-lowest/80 p-8 flex flex-col justify-center">
+            <div class="flex items-start gap-4 mb-8">
+                <div class="w-11 h-11 rounded-full bg-primary-container text-primary flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined animate-spin">autorenew</span>
+                </div>
+                <div class="min-w-0">
+                    <div class="font-label text-xs uppercase tracking-[0.16em] text-primary mb-2">Background Analysis</div>
+                    <h4 class="font-headline text-2xl text-on-surface mb-2">${escapeHtml(stage)}</h4>
+                    <p class="font-body text-sm text-on-surface-variant leading-relaxed">
+                        正在为「${escapeHtml(entry?.title || '当前内容')}」生成真实解读。你可以关闭详情页继续浏览，任务会在后台完成。
+                    </p>
+                </div>
+            </div>
+            <div class="h-2 rounded-full bg-surface-container-high overflow-hidden">
+                <div class="h-full rounded-full bg-primary transition-all duration-500" style="width:${progress}%"></div>
+            </div>
+            <div class="mt-3 flex justify-between font-label text-xs text-on-surface-variant">
+                <span>${escapeHtml(stage)}</span>
+                <span>${progress}%</span>
+            </div>
+        </div>
+    `;
+}
+
 function buildAnalysisEmptyState(entry) {
     return `
         <div class="min-h-[360px] rounded-3xl border border-primary/15 bg-[linear-gradient(135deg,rgba(250,249,239,0.96),rgba(241,246,231,0.94))] p-8 flex flex-col justify-center">
@@ -151,6 +187,8 @@ function buildAnalysisEmptyState(entry) {
 
 function buildAnalysisNeedsContentState(analysis, entry) {
     const result = analysis?.result || {};
+    const isVideo = ['bilibili', 'youtube'].includes(entry?.platform);
+    const setupCommand = result.setup_command || (result.setup_action === 'install_local_stt' ? 'npm run setup:stt' : '');
     return `
         <div class="min-h-[360px] rounded-3xl border border-outline-variant/30 bg-surface-container-lowest p-8">
             <div class="flex items-start gap-4">
@@ -161,8 +199,22 @@ function buildAnalysisNeedsContentState(analysis, entry) {
                     <h4 class="font-headline text-2xl text-on-surface mb-3">需要更多正文</h4>
                     <p class="font-body text-on-surface-variant leading-relaxed">${escapeHtml(result.reason || analysis?.error || '当前内容不足，无法生成可信导图。')}</p>
                     <p class="font-body text-sm text-on-surface-variant mt-4">需要内容：${escapeHtml(result.required_content || '正文、字幕或转录文本')}</p>
+                    <div class="mt-6 flex flex-wrap gap-3">
+                        <button type="button" data-analysis-action="generate" data-entry-id="${escapeHtml(entry?.id || '')}" class="inline-flex items-center gap-2 rounded-lg bg-primary text-on-primary px-5 py-3 font-body font-medium hover:bg-primary-container transition-colors">
+                            <span class="material-symbols-outlined text-[18px]">autorenew</span>
+                            ${isVideo ? '重新查找字幕/转写' : '重新生成解读'}
+                        </button>
+                    </div>
                 </div>
             </div>
+            ${setupCommand ? `
+            <div class="mt-8 rounded-2xl bg-primary/5 p-5 border border-primary/15">
+                <div class="font-label text-xs uppercase tracking-[0.16em] text-primary mb-2">本地转写组件</div>
+                <p class="font-body text-sm leading-relaxed text-on-surface-variant mb-3">
+                    当前环境还不能处理无字幕视频。先在 InfoMind 项目目录运行下面命令安装开源转写工具和默认 Whisper 模型。
+                </p>
+                <code class="block px-3 py-2 rounded-lg bg-surface-container-lowest border border-outline-variant/20 font-mono text-sm text-on-surface break-all">${escapeHtml(setupCommand)}</code>
+            </div>` : ''}
             <div class="mt-8 rounded-2xl bg-surface-container-low p-5 border border-outline-variant/20">
                 <div class="font-label text-xs uppercase tracking-[0.16em] text-on-surface-variant mb-2">Hermes 建议</div>
                 <p class="font-body text-sm leading-relaxed text-on-surface-variant">
@@ -177,7 +229,7 @@ function buildAnalysisFailedState(analysis, entry) {
     return `
         <div class="min-h-[300px] rounded-3xl border border-error/20 bg-error-container/20 p-8">
             <h4 class="font-headline text-2xl text-on-surface mb-3">解读生成失败</h4>
-            <p class="font-body text-on-surface-variant leading-relaxed mb-6">${escapeHtml(analysis?.error || '未知错误')}</p>
+            <p class="font-body text-on-surface-variant leading-relaxed mb-6">${escapeHtml(analysis?.error || '生成失败，请稍后重试。')}</p>
             <button type="button" data-analysis-action="generate" data-entry-id="${escapeHtml(entry?.id || '')}" class="inline-flex items-center gap-2 rounded-lg bg-primary text-on-primary px-5 py-3 font-body font-medium">
                 <span class="material-symbols-outlined text-[18px]">refresh</span>
                 重试生成
@@ -255,6 +307,8 @@ function bindBookEntryInteractions(entries, book) {
     if (!list) return;
 
     const selectEntry = (entry, button) => {
+        currentBookModalEntry = entry;
+        currentBookModalBook = book;
         const title = entry.title || entry.url || '无标题';
         const author = entry.author || book.author || '';
         document.getElementById('bookModalCover').innerHTML = buildModalCover(entry, title);
@@ -285,6 +339,15 @@ function bindBookEntryInteractions(entries, book) {
     });
 }
 
+function bindBookDeleteButton(book) {
+    const button = document.getElementById('bookModalDeleteEntry');
+    if (!button) return;
+    button.addEventListener('click', () => {
+        if (!currentBookModalEntry?.id) return;
+        confirmDeleteEntryFromBook(currentBookModalEntry, book);
+    });
+}
+
 function updateBookModalInsight(entry) {
     const section = document.getElementById('bookModalInsightSection');
     const text = document.getElementById('bookModalInsightText');
@@ -294,15 +357,28 @@ function updateBookModalInsight(entry) {
 }
 
 async function updateBookModalAnalysis(entry, book) {
+    const seq = ++bookModalAnalysisSeq;
     const container = document.getElementById('bookModalMindMap');
     if (!container || !entry?.id) return;
     const meta = document.getElementById('bookModalMindMapMeta');
     if (meta) meta.textContent = getModalPlatformLabel(entry?.platform || book.platform);
-    container.innerHTML = buildAnalysisLoadingState('正在读取已有解读...');
+    if (container.dataset.analysisStatus !== 'processing') {
+        container.innerHTML = buildAnalysisLoadingState('正在读取已有解读...');
+    }
     try {
         const res = await api.getEntryAnalysis(entry.id);
+        if (seq !== bookModalAnalysisSeq) return;
         renderBookModalAnalysis(res.data, entry, book);
+        if (res.data?.status === 'processing') {
+            trackAnalysisJob(entry, book, res.data);
+            setTimeout(() => {
+                if (seq === bookModalAnalysisSeq && currentBookModalEntry?.id === entry.id) {
+                    updateBookModalAnalysis(entry, book);
+                }
+            }, 1800);
+        }
     } catch (err) {
+        if (seq !== bookModalAnalysisSeq) return;
         container.innerHTML = buildAnalysisEmptyState(entry);
         bindAnalysisPanelAction(entry, book);
     }
@@ -311,6 +387,7 @@ async function updateBookModalAnalysis(entry, book) {
 function renderBookModalAnalysis(analysis, entry, book) {
     const container = document.getElementById('bookModalMindMap');
     if (!container) return;
+    container.dataset.analysisStatus = analysis?.status || 'empty';
 
     if (!analysis) {
         container.innerHTML = buildAnalysisEmptyState(entry);
@@ -320,6 +397,8 @@ function renderBookModalAnalysis(analysis, entry, book) {
         container.innerHTML = buildAnalysisNeedsContentState(analysis, entry);
     } else if (analysis.status === 'failed') {
         container.innerHTML = buildAnalysisFailedState(analysis, entry);
+    } else if (analysis.status === 'processing') {
+        container.innerHTML = buildAnalysisProgressState(analysis, entry);
     } else {
         container.innerHTML = buildAnalysisLoadingState('解读任务处理中...');
     }
@@ -335,12 +414,101 @@ function bindAnalysisPanelAction(entry, book) {
         container.innerHTML = buildAnalysisLoadingState('正在生成真实内容解读...');
         try {
             const res = await api.analyzeEntry(entry.id, { force: true });
+            trackAnalysisJob(entry, book, res.data);
             renderBookModalAnalysis(res.data, entry, book);
+            updateBookModalAnalysis(entry, book);
         } catch (err) {
             container.innerHTML = buildAnalysisFailedState({ error: err.message }, entry);
             bindAnalysisPanelAction(entry, book);
         }
     });
+}
+
+function trackAnalysisJob(entry, book, analysis) {
+    if (!entry?.id) return;
+    analysisDockJobs.set(entry.id, {
+        entry,
+        book,
+        analysis: analysis || {},
+        doneAt: null,
+    });
+    renderAnalysisDock();
+    ensureAnalysisDockTimer();
+}
+
+function ensureAnalysisDockTimer() {
+    if (analysisDockTimer) return;
+    analysisDockTimer = setInterval(refreshAnalysisDockJobs, 1800);
+}
+
+async function refreshAnalysisDockJobs() {
+    if (!analysisDockJobs.size) {
+        clearInterval(analysisDockTimer);
+        analysisDockTimer = null;
+        renderAnalysisDock();
+        return;
+    }
+
+    const now = Date.now();
+    for (const [entryId, job] of analysisDockJobs.entries()) {
+        try {
+            const res = await api.getEntryAnalysis(entryId);
+            job.analysis = res.data || {};
+            if (['done', 'failed', 'needs_content'].includes(job.analysis.status)) {
+                job.doneAt ||= now;
+                if (now - job.doneAt > 4500) analysisDockJobs.delete(entryId);
+            }
+        } catch {
+            job.doneAt ||= now;
+            if (now - job.doneAt > 4500) analysisDockJobs.delete(entryId);
+        }
+    }
+    renderAnalysisDock();
+}
+
+function renderAnalysisDock() {
+    let dock = document.getElementById('analysisProgressDock');
+    if (!analysisDockJobs.size) {
+        dock?.remove();
+        return;
+    }
+    if (!dock) {
+        dock = document.createElement('div');
+        dock.id = 'analysisProgressDock';
+        dock.className = 'fixed right-5 bottom-5 z-[220] w-[320px] max-w-[calc(100vw-2.5rem)] space-y-3';
+        document.body.appendChild(dock);
+    }
+    dock.innerHTML = Array.from(analysisDockJobs.values()).map(job => buildAnalysisDockCard(job)).join('');
+}
+
+function buildAnalysisDockCard(job) {
+    const entry = job.entry || {};
+    const analysis = job.analysis || {};
+    const status = analysis.status || 'processing';
+    const progress = status === 'done' ? 100 : Math.max(3, Math.min(99, Number(analysis.progress || 8)));
+    const cover = entry.cover_local || entry.cover_url;
+    const statusLabel = status === 'done' ? '完成' : status === 'failed' ? '失败' : status === 'needs_content' ? '需要内容' : (analysis.stage || '处理中');
+    const tone = status === 'failed' ? 'bg-error' : status === 'needs_content' ? 'bg-outline' : 'bg-primary';
+    return `
+        <div class="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest/95 shadow-[0_18px_60px_rgba(28,28,22,0.16)] backdrop-blur p-3">
+            <div class="flex gap-3">
+                <div class="w-12 h-16 rounded-md bg-surface-container-high overflow-hidden shrink-0">
+                    ${cover ? `<img src="${escapeHtml(cover)}" alt="" class="w-full h-full object-cover" onerror="this.style.display='none'" />` : `<div class="w-full h-full flex items-center justify-center"><span class="material-symbols-outlined text-on-surface-variant">account_tree</span></div>`}
+                </div>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <span class="font-label text-[10px] uppercase tracking-[0.14em] text-primary">Mind Map</span>
+                        <span class="font-label text-xs text-on-surface-variant">${progress}%</span>
+                    </div>
+                    <div class="font-body text-sm text-on-surface font-medium truncate">${escapeHtml(entry.title || '内容解读')}</div>
+                    <div class="font-body text-xs text-on-surface-variant mt-1 truncate">${escapeHtml(statusLabel)}</div>
+                    <div class="mt-3 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+                        <div class="h-full ${tone} rounded-full transition-all duration-500" style="width:${progress}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 function formatDateTimeMinute(value) {
@@ -439,25 +607,82 @@ function getModalPlatformLabel(platform) {
     return platform || 'web';
 }
 
-function confirmDeleteBook(bookId) {
-    if (!confirm('确认删除这本书及其所有内容？')) return;
-    api.getBook(bookId).then(res => {
-        const entries = res.data.entries || [];
-        return Promise.all(entries.map(e => api.deleteEntry(e.id)));
-    }).then(() => {
-        closeModal();
-        window.showToast('已删除', 'success');
-        window.loadData();
-    }).catch(err => window.showToast('删除失败: ' + err.message, 'error'));
+function confirmDeleteEntry(entryId) {
+    showDeleteConfirmDialog({
+        title: '删除这条内容？',
+        description: '删除后会从书架、时间线和解读缓存中移除。',
+        itemTitle: '当前内容',
+        onConfirm: () => api.deleteEntry(entryId).then(() => {
+            closeModal();
+            window.showToast('已删除', 'success');
+            window.loadData();
+        }),
+    });
 }
 
-function confirmDeleteEntry(entryId) {
-    if (!confirm('确认删除这条内容？')) return;
-    api.deleteEntry(entryId).then(() => {
-        closeModal();
-        window.showToast('已删除', 'success');
-        window.loadData();
-    }).catch(err => window.showToast('删除失败: ' + err.message, 'error'));
+function confirmDeleteEntryFromBook(entry, book) {
+    showDeleteConfirmDialog({
+        title: '删除当前选中的内容？',
+        description: '只会删除这一篇内容，不会删除整本书中的其他收录。',
+        itemTitle: entry.title || entry.url || '无标题',
+        onConfirm: async () => {
+            await api.deleteEntry(entry.id);
+            window.showToast('已删除当前内容', 'success');
+            window.loadData();
+            try {
+                const nextBook = await api.getBook(book.id);
+                if (nextBook.data?.entries?.length) {
+                    openBookModal(book.id);
+                    return;
+                }
+            } catch {}
+            closeModal();
+        },
+    });
+}
+
+function showDeleteConfirmDialog({ title, description, itemTitle, onConfirm }) {
+    document.getElementById('deleteConfirmOverlay')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'deleteConfirmOverlay';
+    overlay.className = 'fixed inset-0 z-[260] bg-on-surface/25 backdrop-blur-sm flex items-center justify-center p-6';
+    overlay.innerHTML = `
+        <div class="w-full max-w-md rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-[0_24px_80px_rgba(28,28,22,0.22)] overflow-hidden">
+            <div class="p-7">
+                <div class="w-11 h-11 rounded-full bg-error-container text-error flex items-center justify-center mb-5">
+                    <span class="material-symbols-outlined">delete</span>
+                </div>
+                <h3 class="font-headline text-3xl text-on-surface mb-3">${escapeHtml(title)}</h3>
+                <p class="font-body text-sm text-on-surface-variant leading-relaxed mb-5">${escapeHtml(description)}</p>
+                <div class="rounded-xl bg-surface-container-low border border-outline-variant/20 px-4 py-3 font-body text-sm text-on-surface leading-snug">
+                    ${escapeHtml(itemTitle)}
+                </div>
+            </div>
+            <div class="px-7 py-5 bg-surface-container-low flex justify-end gap-3">
+                <button type="button" data-delete-cancel class="px-5 py-2.5 rounded-lg bg-surface-container-high text-on-surface font-body text-sm hover:bg-surface-container-highest">取消</button>
+                <button type="button" data-delete-confirm class="px-5 py-2.5 rounded-lg bg-error text-on-error font-body text-sm hover:opacity-90">确认删除</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', event => {
+        if (event.target === overlay) close();
+    });
+    overlay.querySelector('[data-delete-cancel]').addEventListener('click', close);
+    overlay.querySelector('[data-delete-confirm]').addEventListener('click', async () => {
+        const button = overlay.querySelector('[data-delete-confirm]');
+        button.disabled = true;
+        button.textContent = '删除中...';
+        try {
+            await onConfirm();
+            close();
+        } catch (err) {
+            button.disabled = false;
+            button.textContent = '确认删除';
+            window.showToast('删除失败: ' + err.message, 'error');
+        }
+    });
 }
 
 // ── Animated overlay helpers ─────────────────────────────────────────────────
@@ -524,5 +749,4 @@ document.addEventListener('keydown', e => {
 window.openBookModal = openBookModal;
 window.openEntryModal = openEntryModal;
 window.closeModal = closeModal;
-window.confirmDeleteBook = confirmDeleteBook;
 window.confirmDeleteEntry = confirmDeleteEntry;

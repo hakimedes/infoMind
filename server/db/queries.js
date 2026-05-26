@@ -128,8 +128,9 @@ function upsertEntryAnalysis(data) {
     db.prepare(`
         INSERT INTO entry_analysis (
             id, entry_id, status, content_hash, source_kind, source_length,
-            model, token_budget, result_json, error, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            model, token_budget, progress, stage, result_json, error,
+            started_at, finished_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(entry_id) DO UPDATE SET
             status = excluded.status,
             content_hash = excluded.content_hash,
@@ -137,8 +138,12 @@ function upsertEntryAnalysis(data) {
             source_length = excluded.source_length,
             model = excluded.model,
             token_budget = excluded.token_budget,
+            progress = excluded.progress,
+            stage = excluded.stage,
             result_json = excluded.result_json,
             error = excluded.error,
+            started_at = COALESCE(excluded.started_at, entry_analysis.started_at),
+            finished_at = excluded.finished_at,
             updated_at = CURRENT_TIMESTAMP
     `).run(
         id,
@@ -149,8 +154,12 @@ function upsertEntryAnalysis(data) {
         data.source_length || 0,
         data.model || null,
         data.token_budget || 'medium',
+        Number.isFinite(data.progress) ? data.progress : 0,
+        data.stage || null,
         JSON.stringify(data.result || {}),
-        data.error || null
+        data.error || null,
+        data.started_at || null,
+        data.finished_at || null
     );
     return getEntryAnalysis(data.entry_id);
 }

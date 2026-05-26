@@ -34,6 +34,7 @@ async function bilibiliParse(url) {
         source_data: {
             bvid: video.bvid,
             aid: video.aid,
+            cid: video.cid || video.pages?.[0]?.cid || null,
             duration: video.duration,
             view: video.stat?.view,
             like: video.stat?.like,

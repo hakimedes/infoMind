@@ -57,8 +57,12 @@ CREATE TABLE IF NOT EXISTS entry_analysis (
     source_length INTEGER DEFAULT 0,
     model         TEXT,
     token_budget  TEXT DEFAULT 'medium',
+    progress      INTEGER DEFAULT 0,
+    stage         TEXT,
     result_json   TEXT DEFAULT '{}',
     error         TEXT,
+    started_at    DATETIME,
+    finished_at   DATETIME,
     created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
