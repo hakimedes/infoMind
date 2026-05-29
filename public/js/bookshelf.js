@@ -66,11 +66,13 @@ function renderBookshelf(booksData, categoriesData, container) {
 
     for (const cat of sections) {
         const section = document.createElement('section');
-        section.dataset.category = cat.name;
         const catMeta = getCategoryMeta(cat.name);
+        section.dataset.category = cat.name;
+        section.className = 'knowledge-island';
+        section.style.setProperty('--island-tone', pickIslandTone(cat.name));
 
         section.innerHTML = `
-      <div class="flex items-center justify-between mb-8">
+      <div class="knowledge-island-header flex items-center justify-between mb-8">
         <h2 class="font-headline text-3xl text-on-surface flex items-center gap-3">
             <span class="inline-flex w-10 h-10 items-center justify-center rounded-full border border-outline-variant/20 bg-surface-container-low shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]" style="color:${catMeta.tone};">
                 <span class="material-symbols-outlined text-[22px] leading-none">${escapeHtml(catMeta.icon)}</span>
@@ -94,7 +96,7 @@ function renderBookshelf(booksData, categoriesData, container) {
 
 function buildBookCard(book, index = 0) {
     const card = document.createElement('div');
-    card.className = 'group cursor-pointer';
+    card.className = 'kinetic-book-card group cursor-pointer';
     card.dataset.bookId = book.id;
     card.style.animationDelay = `${Math.min(index * 0.05, 0.5)}s`;
 
@@ -117,7 +119,7 @@ function buildBookCard(book, index = 0) {
 
     card.innerHTML = `
     <div class="book-cover-3d relative mb-3" style="perspective: 800px;">
-        <div class="w-full aspect-[2/3] rounded-sm overflow-hidden relative
+        <div class="book-cover-shell w-full aspect-[2/3] rounded-sm overflow-hidden relative
                     shadow-[4px_4px_12px_rgba(28,28,22,0.08)]
                     transition-all duration-300
                     group-hover:-translate-y-1.5 group-hover:shadow-[6px_10px_24px_rgba(28,28,22,0.15)]"
@@ -148,6 +150,13 @@ function buildBookCard(book, index = 0) {
 
     card.addEventListener('click', () => window.openBookModal(book.id));
     return card;
+}
+
+function pickIslandTone(category) {
+    const tones = ['#dff1ff', '#dff6e8', '#ffe6d5', '#f8dde8', '#eee5ff', '#fff1bd'];
+    let hash = 0;
+    for (const ch of String(category || '')) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+    return tones[hash % tones.length];
 }
 
 function renderTimeline(entries, container) {

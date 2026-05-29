@@ -479,8 +479,8 @@ function renderTrendChart(data) {
     const activeMarkers = selectVisibleMarkers(points.filter(p => p.count > 0), 18);
     const peakPoint = points.reduce((best, p) => p.count > best.count ? p : best, points[0] || { count: 0, x: bounds.left, y: bounds.bottom });
     const lastActivePoint = [...points].reverse().find(p => p.count > 0) || points[points.length - 1];
-    const accent = '#715915';
-    const accentSoft = '#d6a849';
+    const accent = '#0066cc';
+    const accentSoft = '#2997ff';
 
     subtitle.textContent = `${rangeLabel(data.range)} · ${summary.total_entries} 条收录 · ${summary.active_days} 个活跃日`;
     const delta = summary.delta_percent;
@@ -506,24 +506,24 @@ function renderTrendChart(data) {
                     <stop offset="100%" stop-color="${accentSoft}" stop-opacity="0"></stop>
                 </linearGradient>
                 <filter id="trendLineGlow" x="-10%" y="-40%" width="120%" height="180%">
-                    <feDropShadow dx="0" dy="3" stdDeviation="2.2" flood-color="${accent}" flood-opacity="0.18"/>
+                    <feDropShadow dx="0" dy="0" stdDeviation="0" flood-color="${accent}" flood-opacity="0"/>
                 </filter>
             </defs>
-            <rect x="${bounds.left}" y="${bounds.top}" width="${bounds.right - bounds.left}" height="${bounds.bottom - bounds.top}" rx="1.5" fill="#f7f4e9" opacity="0.52"></rect>
+            <rect x="${bounds.left}" y="${bounds.top}" width="${bounds.right - bounds.left}" height="${bounds.bottom - bounds.top}" rx="1.5" fill="#fafafc" opacity="0.92"></rect>
             ${yTicks.map(tick => `
-                <line x1="${bounds.left}" x2="${bounds.right}" y1="${tick.y.toFixed(2)}" y2="${tick.y.toFixed(2)}" stroke="#d0c5b4" stroke-width="0.35" stroke-dasharray="1.5 2.2" opacity="0.75"></line>
-                <text x="1.6" y="${(tick.y + 1).toFixed(2)}" font-size="3.2" fill="#7e7667" font-family="Inter, sans-serif">${tick.value}</text>
+                <line x1="${bounds.left}" x2="${bounds.right}" y1="${tick.y.toFixed(2)}" y2="${tick.y.toFixed(2)}" stroke="#d2d2d7" stroke-width="0.28" stroke-dasharray="1.5 2.2" opacity="0.7"></line>
+                <text x="1.6" y="${(tick.y + 1).toFixed(2)}" font-size="3.2" fill="#6e6e73" font-family="system-ui, -apple-system, sans-serif">${tick.value}</text>
             `).join('')}
-            <line x1="${bounds.left}" x2="${bounds.right}" y1="${bounds.bottom}" y2="${bounds.bottom}" stroke="#7e7667" stroke-width="0.45" opacity="0.55"></line>
+            <line x1="${bounds.left}" x2="${bounds.right}" y1="${bounds.bottom}" y2="${bounds.bottom}" stroke="#d2d2d7" stroke-width="0.35" opacity="0.8"></line>
             ${areaPath ? `<path d="${areaPath}" fill="url(#trendAreaGradient)"></path>` : ''}
-            ${linePath ? `<path d="${linePath}" fill="none" stroke="${accent}" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.55" filter="url(#trendLineGlow)"></path>` : ''}
-            ${activeMarkers.map(p => `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="1.15" fill="#fcf9ef" stroke="${accent}" stroke-width="0.65"></circle>`).join('')}
+            ${linePath ? `<path d="${linePath}" fill="none" stroke="${accent}" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35"></path>` : ''}
+            ${activeMarkers.map(p => `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="1.15" fill="#ffffff" stroke="${accent}" stroke-width="0.65"></circle>`).join('')}
             ${peakPoint?.count > 0 ? `
                 <line x1="${peakPoint.x.toFixed(2)}" x2="${peakPoint.x.toFixed(2)}" y1="${peakPoint.y.toFixed(2)}" y2="${bounds.bottom}" stroke="${accent}" stroke-width="0.35" stroke-dasharray="1 1.6" opacity="0.5"></line>
                 <circle cx="${peakPoint.x.toFixed(2)}" cy="${peakPoint.y.toFixed(2)}" r="2.25" fill="${accent}" opacity="0.16"></circle>
                 <circle cx="${peakPoint.x.toFixed(2)}" cy="${peakPoint.y.toFixed(2)}" r="1.15" fill="${accent}"></circle>
             ` : ''}
-            ${lastActivePoint?.count > 0 ? `<circle cx="${lastActivePoint.x.toFixed(2)}" cy="${lastActivePoint.y.toFixed(2)}" r="1.55" fill="#fcf9ef" stroke="${accent}" stroke-width="0.9"></circle>` : ''}
+            ${lastActivePoint?.count > 0 ? `<circle cx="${lastActivePoint.x.toFixed(2)}" cy="${lastActivePoint.y.toFixed(2)}" r="1.55" fill="#ffffff" stroke="${accent}" stroke-width="0.9"></circle>` : ''}
         </svg>
         <div class="absolute bottom-1 left-[8%] right-[2%] z-20 flex justify-between text-[10px] font-label text-on-surface/45">
             ${tickIndexes.map(i => `<span>${formatChartDate(trend[i]?.date, data.range)}</span>`).join('')}
@@ -900,7 +900,7 @@ function closeQuickAdd() {
     animateOut(document.getElementById('quickAddBar'), { duration: 180, toY: -8 });
 }
 
-// ── Add URL (with loading overlay + confetti) ────────────────────────────────
+// ── Add URL (mail folding, sealing, and mailbox delivery) ────────────────────
 function _createSaveOverlay() {
     let overlay = document.getElementById('saveOverlay');
     if (overlay) return overlay;
@@ -911,39 +911,169 @@ function _createSaveOverlay() {
         <style>
             #saveOverlay {
                 position: fixed; inset: 0; z-index: 9998;
-                background: rgba(252,249,239, 0.85);
-                backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+                background: rgba(255,254,250, 0.72);
+                backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
                 display: flex; flex-direction: column; align-items: center; justify-content: center;
-                transition: opacity 0.3s cubic-bezier(0.22,1,0.36,1);
+                transition: opacity 0.2s cubic-bezier(0.22,1,0.36,1);
             }
             #saveOverlay.hidden { opacity: 0; pointer-events: none; display: none; }
-            .save-spinner { animation: savePulse 1.8s cubic-bezier(0.4,0,0.6,1) infinite; }
-            @keyframes savePulse {
-                0%, 100% { transform: scale(1); opacity: 0.7; }
-                50% { transform: scale(1.08); opacity: 1; }
+            .mail-prep-loader {
+                position: relative; width: min(360px, calc(100vw - 32px)); height: 248px; margin-bottom: 22px;
+                display: flex; align-items: center; justify-content: center;
+                perspective: 900px;
             }
-            .save-dots span {
-                display: inline-block; width: 6px; height: 6px; border-radius: 50%;
-                background: #715915; margin: 0 3px;
-                animation: saveDotBounce 1.4s infinite ease-in-out both;
+            .prep-envelope {
+                --cycle: 4.2s;
+                position: relative; width: min(220px, 62vw); height: min(110px, 31vw);
+                transform-style: preserve-3d;
+                filter: drop-shadow(0 26px 42px rgba(42,38,28,0.13));
+                animation: prepEnvelopeBreathe var(--cycle) cubic-bezier(0.22,1,0.36,1) infinite;
             }
-            .save-dots span:nth-child(1) { animation-delay: 0s; }
-            .save-dots span:nth-child(2) { animation-delay: 0.16s; }
-            .save-dots span:nth-child(3) { animation-delay: 0.32s; }
-            @keyframes saveDotBounce {
-                0%, 80%, 100% { transform: scale(0.4); opacity: 0.4; }
-                40% { transform: scale(1); opacity: 1; }
+            .prep-envelope-back,
+            .prep-envelope-front,
+            .prep-flap {
+                position: absolute; inset: 0;
+                border: 1px solid rgba(92,74,44,0.16);
+                background:
+                    radial-gradient(circle at 16% 18%, rgba(255,255,255,0.78), transparent 26%),
+                    radial-gradient(circle at 82% 72%, rgba(132,103,60,0.08), transparent 22%),
+                    repeating-linear-gradient(8deg, rgba(108,85,48,0.035) 0 1px, transparent 1px 7px),
+                    linear-gradient(145deg, #fffdf3, #f2dfbb 68%, #e3c996);
+            }
+            .prep-envelope-back {
+                border-radius: 5px;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.86);
+            }
+            .prep-envelope-front {
+                border-radius: 5px;
+                background:
+                    linear-gradient(32deg, transparent 49.4%, rgba(111,86,48,0.18) 50%, transparent 50.6%),
+                    linear-gradient(-32deg, transparent 49.4%, rgba(111,86,48,0.13) 50%, transparent 50.6%),
+                    linear-gradient(to bottom, rgba(255,255,255,0.42), rgba(244,226,190,0.78));
+                opacity: 0.94;
+            }
+            .prep-flap {
+                transform-style: preserve-3d;
+                backface-visibility: hidden;
+            }
+            .prep-flap.top {
+                bottom: 50%; clip-path: polygon(0 0, 100% 0, 50% 100%);
+                transform-origin: 50% 0%;
+                animation: prepFoldTop var(--cycle) cubic-bezier(0.16,1,0.3,1) infinite;
+            }
+            .prep-flap.bottom {
+                top: 50%; clip-path: polygon(0 100%, 100% 100%, 50% 0);
+                transform-origin: 50% 100%;
+                animation: prepFoldBottom var(--cycle) cubic-bezier(0.16,1,0.3,1) infinite;
+            }
+            .prep-flap.left {
+                right: 50%; clip-path: polygon(0 0, 100% 50%, 0 100%);
+                transform-origin: 0% 50%;
+                animation: prepFoldLeft var(--cycle) cubic-bezier(0.16,1,0.3,1) infinite;
+            }
+            .prep-flap.right {
+                left: 50%; clip-path: polygon(100% 0, 0 50%, 100% 100%);
+                transform-origin: 100% 50%;
+                animation: prepFoldRight var(--cycle) cubic-bezier(0.16,1,0.3,1) infinite;
+            }
+            .prep-paper-grain {
+                position: absolute; inset: 0; border-radius: 5px; pointer-events: none;
+                background:
+                    radial-gradient(circle at 24% 28%, rgba(108,85,48,0.08) 0 1px, transparent 1px),
+                    radial-gradient(circle at 76% 54%, rgba(108,85,48,0.06) 0 1px, transparent 1px),
+                    repeating-linear-gradient(102deg, rgba(255,255,255,0.18) 0 1px, transparent 1px 9px);
+                background-size: 22px 18px, 28px 24px;
+                mix-blend-mode: multiply;
+                opacity: 0.48;
+            }
+            .prep-stamp {
+                position: absolute; right: 16px; top: 14px; width: 34px; height: 24px;
+                border-radius: 3px; border: 1px solid rgba(80,64,42,0.18);
+                background: linear-gradient(135deg, rgba(227,245,255,0.72), rgba(250,227,237,0.58));
+                animation: prepStampFade var(--cycle) ease infinite;
+            }
+            .prep-glue-line {
+                position: absolute; left: 34px; right: 34px; top: 48%;
+                height: 8px; border-radius: 999px;
+                background: linear-gradient(90deg, transparent, rgba(126,202,166,0.58), transparent);
+                opacity: 0;
+                transform: scaleX(0.15);
+                animation: prepGlueMark var(--cycle) cubic-bezier(0.16,1,0.3,1) infinite;
+            }
+            .glue-stick {
+                position: absolute; left: 216px; top: 76px; width: 58px; height: 18px;
+                border-radius: 999px; background: linear-gradient(90deg, #13120f, #343026);
+                box-shadow: 0 10px 26px rgba(42,38,28,0.14);
+                transform-origin: 6px 50%;
+                animation: prepGlueSwipe 4.2s cubic-bezier(0.16,1,0.3,1) infinite;
+            }
+            .glue-stick::before {
+                content: ""; position: absolute; left: -22px; top: 4px; width: 28px; height: 10px;
+                border-radius: 999px; background: linear-gradient(90deg, rgba(228,248,237,0.98), rgba(126,202,166,0.72));
+                box-shadow: 0 0 12px rgba(80,160,120,0.16);
+            }
+            .glue-stick::after {
+                content: ""; position: absolute; right: 8px; top: 4px; width: 18px; height: 10px;
+                border-radius: 999px; background: rgba(255,255,255,0.12);
+            }
+            @keyframes prepEnvelopeBreathe {
+                0%, 100% { transform: rotate(-1deg) translateY(0); }
+                32% { transform: rotate(0.5deg) translateY(-2px); }
+                64% { transform: rotate(-0.4deg) translateY(1px); }
+            }
+            @keyframes prepFoldLeft {
+                0%, 10%, 100% { transform: rotateY(0deg); }
+                22%, 88% { transform: rotateY(-160deg); }
+            }
+            @keyframes prepFoldRight {
+                0%, 14%, 100% { transform: rotateY(0deg); }
+                28%, 88% { transform: rotateY(160deg); }
+            }
+            @keyframes prepFoldBottom {
+                0%, 24%, 100% { transform: rotateX(0deg); }
+                40%, 88% { transform: rotateX(156deg); }
+            }
+            @keyframes prepFoldTop {
+                0%, 34%, 100% { transform: rotateX(0deg); }
+                52%, 88% { transform: rotateX(-164deg); }
+            }
+            @keyframes prepStampFade {
+                0%, 45%, 100% { opacity: 1; }
+                52%, 88% { opacity: 0; }
+            }
+            @keyframes prepGlueSwipe {
+                0%, 54% { opacity: 0; transform: translate(-10px, 8px) rotate(-18deg); }
+                61% { opacity: 1; transform: translate(-4px, 8px) rotate(-18deg); }
+                76% { opacity: 1; transform: translate(-150px, 34px) rotate(-18deg); }
+                84%, 100% { opacity: 0; transform: translate(-166px, 40px) rotate(-18deg); }
+            }
+            @keyframes prepGlueMark {
+                0%, 58% { opacity: 0; transform: scaleX(0.08); }
+                76% { opacity: 1; transform: scaleX(1); }
+                92%, 100% { opacity: 0; transform: scaleX(0.92); }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .prep-envelope, .prep-flap, .glue-stick, .prep-glue-line, .prep-stamp {
+                    animation: none !important;
+                }
             }
         </style>
-        <div class="save-spinner mb-6">
-            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#715915" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z"/>
-                <line x1="10" y1="22" x2="14" y2="22"/>
-                <line x1="9" y1="17" x2="15" y2="17"/>
-            </svg>
+        <div class="mail-prep-loader" aria-hidden="true">
+            <div class="prep-envelope">
+                <div class="prep-envelope-back"></div>
+                <div class="prep-flap left"></div>
+                <div class="prep-flap right"></div>
+                <div class="prep-flap bottom"></div>
+                <div class="prep-envelope-front"></div>
+                <div class="prep-flap top"></div>
+                <div class="prep-paper-grain"></div>
+                <div class="prep-stamp"></div>
+                <div class="prep-glue-line"></div>
+            </div>
+            <div class="glue-stick"></div>
         </div>
-        <p id="saveOverlayText" class="font-label text-sm text-on-surface-variant tracking-wide mb-4">正在解析链接，AI 分类中</p>
-        <div class="save-dots"><span></span><span></span><span></span></div>
+        <p id="saveOverlayText" class="font-headline text-3xl text-on-surface mb-2">信息收录中</p>
+        <p class="font-body text-sm text-on-surface-variant">正在解析链接、分类并放入书架</p>
     `;
     document.body.appendChild(overlay);
     return overlay;
@@ -951,7 +1081,7 @@ function _createSaveOverlay() {
 
 function _showSaveOverlay(text) {
     const overlay = _createSaveOverlay();
-    document.getElementById('saveOverlayText').textContent = text || '正在解析链接，AI 分类中';
+    document.getElementById('saveOverlayText').textContent = text || '信息收录中';
     overlay.classList.remove('hidden');
     overlay.style.display = 'flex';
     requestAnimationFrame(() => { overlay.style.opacity = '1'; });
@@ -964,174 +1094,121 @@ function _hideSaveOverlay() {
     setTimeout(() => { overlay.classList.add('hidden'); overlay.style.display = 'none'; }, 300);
 }
 
-// ── Confetti Cannon System 🎉 ────────────────────────────────────────────────
-function _injectCelebrationStyles() {
-    if (document.getElementById('celebrationStyles')) return;
-    const s = document.createElement('style');
-    s.id = 'celebrationStyles';
-    s.textContent = `
-        /* ── Corner cannon particles ───────────────────────── */
-        .confetti-cannon { position:fixed; z-index:10001; pointer-events:none; }
-        .cannon-particle {
-            position: absolute; border-radius: 2px;
-            animation: cannonShoot var(--dur) var(--delay) cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        @keyframes cannonShoot {
-            0%   { transform: translate(0, 0) rotate(0deg) scale(0.3); opacity: 0; }
-            8%   { opacity: 1; transform: translate(calc(var(--dx) * 0.1), calc(var(--dy) * 0.1)) rotate(calc(var(--rot) * 0.1)) scale(1); }
-            40%  { opacity: 1; }
-            100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(0.2); opacity: 0; }
-        }
+// ── Mailbox drop success animation + generated sound ─────────────────────────
+function playCelebration(entryOrCategory) {
+    const entry = typeof entryOrCategory === 'object' ? entryOrCategory : { category: entryOrCategory };
+    const category = entry?.category || '知识库';
+    const title = entry?.title || entry?.latest_entry_title || '新收录内容';
+    const platform = entry?.platform ? getPlatformLabelForMaildrop(entry.platform) : 'InfoMind';
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-        /* ── Center burst ribbons ──────────────────────────── */
-        .ribbon {
-            position: absolute; left: 50%; top: 50%; border-radius: 1px;
-            animation: ribbonBurst var(--dur) var(--delay) cubic-bezier(0.22, 1, 0.36, 1) forwards;
-        }
-        @keyframes ribbonBurst {
-            0%   { transform: translate(-50%, -50%) rotate(0deg) scale(0); opacity: 0; }
-            15%  { transform: translate(calc(-50% + var(--rx) * 0.15), calc(-50% + var(--ry) * 0.15)) rotate(calc(var(--rr) * 0.3)) scale(1.2); opacity: 1; }
-            50%  { opacity: 0.8; }
-            100% { transform: translate(calc(-50% + var(--rx)), calc(-50% + var(--ry))) rotate(var(--rr)) scale(0.3); opacity: 0; }
-        }
+    playMaildropSound(reduceMotion);
 
-        /* ── Success card ──────────────────────────────────── */
-        .success-card-overlay {
-            position: fixed; inset: 0; z-index: 10002;
-            display: flex; align-items: center; justify-content: center;
-            pointer-events: none;
-        }
-        .success-card {
-            background: rgba(252,249,239,0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(113,89,21,0.12); border-radius: 16px;
-            padding: 32px 48px; text-align: center;
-            box-shadow: 0 20px 60px rgba(28,28,22,0.12), 0 4px 16px rgba(28,28,22,0.06);
-            animation: successCardIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-            pointer-events: auto;
-        }
-        .success-card.out {
-            animation: successCardOut 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-        }
-        @keyframes successCardIn {
-            0%   { transform: scale(0.6) translateY(20px); opacity: 0; }
-            100% { transform: scale(1) translateY(0); opacity: 1; }
-        }
-        @keyframes successCardOut {
-            0%   { transform: scale(1) translateY(0); opacity: 1; }
-            100% { transform: scale(0.92) translateY(-10px); opacity: 0; }
-        }
-        .success-check {
-            width: 48px; height: 48px; border-radius: 50%;
-            background: linear-gradient(135deg, #446733, #5a8a42);
-            display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 16px; animation: checkPop 0.5s 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-        }
-        @keyframes checkPop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
-    `;
-    document.head.appendChild(s);
-}
-
-function playCelebration(categoryName) {
-    _injectCelebrationStyles();
-    const COLORS = ['#715915', '#446733', '#ba1a1a', '#00639b', '#8b5000', '#984061', '#006b5d', '#d4a017'];
-    const container = document.createElement('div');
-    container.style.cssText = 'position:fixed;inset:0;z-index:10001;pointer-events:none;overflow:hidden;';
-
-    // ── PHASE 1: Corner cannons (4 corners → center) ─────────
-    const vw = window.innerWidth, vh = window.innerHeight;
-    const corners = [
-        { x: 0, y: vh, dx: 1, dy: -1 },     // bottom-left
-        { x: vw, y: vh, dx: -1, dy: -1 },    // bottom-right
-        { x: 0, y: 0, dx: 1, dy: 1 },        // top-left
-        { x: vw, y: 0, dx: -1, dy: 1 },      // top-right
-    ];
-
-    corners.forEach((corner, ci) => {
-        for (let i = 0; i < 18; i++) {
-            const p = document.createElement('div');
-            p.className = 'cannon-particle';
-            const size = 4 + Math.random() * 8;
-            const color = COLORS[Math.floor(Math.random() * COLORS.length)];
-            const spread = 0.5 + Math.random() * 0.8;
-            const dx = corner.dx * (vw * 0.3 + Math.random() * vw * 0.25) * spread;
-            const dy = corner.dy * (vh * 0.25 + Math.random() * vh * 0.25) * spread;
-            const rot = (Math.random() - 0.5) * 900;
-            const delay = ci * 0.06 + Math.random() * 0.15;
-            const dur = 1.0 + Math.random() * 0.8;
-            const isRect = Math.random() > 0.3;
-
-            p.style.cssText = `
-                left: ${corner.x}px; top: ${corner.y}px;
-                width: ${isRect ? size * 2 : size}px; height: ${isRect ? size * 0.5 : size}px;
-                background: ${color}; border-radius: ${isRect ? '1px' : '50%'};
-                --dx: ${dx}px; --dy: ${dy}px; --rot: ${rot}deg;
-                --delay: ${delay}s; --dur: ${dur}s;
-            `;
-            container.appendChild(p);
-        }
-    });
-
-    // ── PHASE 2: Center burst ribbons (after cannons converge) ───
-    setTimeout(() => {
-        for (let i = 0; i < 50; i++) {
-            const r = document.createElement('div');
-            r.className = 'ribbon';
-            const angle = (Math.PI * 2 * i) / 50 + (Math.random() - 0.5) * 0.6;
-            const dist = 80 + Math.random() * 280;
-            const rx = Math.cos(angle) * dist;
-            const ry = Math.sin(angle) * dist - 40; // slight upward bias
-            const rr = (Math.random() - 0.5) * 720;
-            const color = COLORS[Math.floor(Math.random() * COLORS.length)];
-            const w = 3 + Math.random() * 10;
-            const h = 6 + Math.random() * 16;
-            const delay = Math.random() * 0.2;
-            const dur = 0.8 + Math.random() * 0.6;
-
-            r.style.cssText = `
-                width: ${w}px; height: ${h}px; background: ${color};
-                --rx: ${rx}px; --ry: ${ry}px; --rr: ${rr}deg;
-                --delay: ${delay}s; --dur: ${dur}s;
-            `;
-            container.appendChild(r);
-        }
-    }, 350);
-
-    document.body.appendChild(container);
-
-    // ── PHASE 3: Success card (center, elegant) ──────────────
-    setTimeout(() => {
-        const cardOverlay = document.createElement('div');
-        cardOverlay.className = 'success-card-overlay';
-        cardOverlay.innerHTML = `
-            <div class="success-card">
-                <div class="success-check">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="20 6 9 17 4 12"/>
-                    </svg>
+    const overlay = document.createElement('div');
+    overlay.className = 'maildrop-overlay';
+    overlay.innerHTML = `
+        <div class="maildrop-stage">
+            <div class="maildrop-camera">
+                ${reduceMotion ? '' : `<div class="maildrop-letter"><div class="maildrop-letter-seam"></div></div>`}
+                <div class="maildrop-mailbox"><div class="mailbox-post"></div></div>
+                <div class="maildrop-slot-cover" aria-hidden="true"></div>
+                <div class="maildrop-fireworks" aria-hidden="true">
+                    ${Array.from({ length: 22 }, (_, i) => `<span style="--i:${i};--a:${i * 16.36}deg"></span>`).join('')}
                 </div>
-                <h3 style="font-family:'Instrument Serif',serif; font-size:24px; color:#1c1c16; margin:0 0 6px; font-weight:normal;">收录成功</h3>
-                <p style="font-family:'Manrope',sans-serif; font-size:13px; color:#7a7768; margin:0; letter-spacing:0.5px;">
-                    已归入「${escapeHtml(categoryName || '知识库')}」
+            </div>
+            <div class="maildrop-result">
+                <div class="maildrop-stamp">
+                    <span class="material-symbols-outlined text-[15px] leading-none">mark_email_read</span>
+                    收录成功
+                </div>
+                <h3 class="mt-4 font-headline text-3xl leading-tight text-on-surface">${escapeHtml(title)}</h3>
+                <p class="mt-3 font-body text-sm leading-relaxed text-on-surface-variant">
+                    已投递到「${escapeHtml(category)}」 · ${escapeHtml(platform)}
                 </p>
             </div>
-        `;
-        cardOverlay.addEventListener('click', () => dismissSuccessCard(cardOverlay));
-        document.body.appendChild(cardOverlay);
+        </div>
+    `;
+    document.body.appendChild(overlay);
 
-        // Auto dismiss
-        setTimeout(() => dismissSuccessCard(cardOverlay), 2800);
-    }, 500);
-
-    // Clean up confetti
-    setTimeout(() => container.remove(), 3500);
+    const result = overlay.querySelector('.maildrop-result');
+    setTimeout(() => result?.classList.add('is-visible'), reduceMotion ? 80 : 1520);
+    overlay.addEventListener('click', () => dismissMaildrop(overlay));
+    setTimeout(() => dismissMaildrop(overlay), reduceMotion ? 1800 : 3900);
 }
 
-function dismissSuccessCard(overlay) {
+function dismissMaildrop(overlay) {
     if (!overlay || overlay._dismissed) return;
     overlay._dismissed = true;
-    const card = overlay.querySelector('.success-card');
-    if (card) card.classList.add('out');
-    setTimeout(() => overlay.remove(), 400);
+    overlay.style.transition = 'opacity 260ms cubic-bezier(0.22,1,0.36,1), transform 260ms cubic-bezier(0.22,1,0.36,1)';
+    overlay.style.opacity = '0';
+    overlay.style.transform = 'scale(0.98)';
+    setTimeout(() => overlay.remove(), 280);
+}
+
+function getPlatformLabelForMaildrop(platform) {
+    if (typeof PLATFORM_LABELS !== 'undefined' && PLATFORM_LABELS[platform]) return PLATFORM_LABELS[platform];
+    return platform || '网页';
+}
+
+function playMaildropSound(reduceMotion = false) {
+    if (reduceMotion) return;
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const now = ctx.currentTime;
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.0001, now);
+    master.gain.exponentialRampToValueAtTime(0.16, now + 0.02);
+    master.gain.exponentialRampToValueAtTime(0.0001, now + 1.95);
+    master.connect(ctx.destination);
+
+    const noiseBurst = (start, dur, gainValue = 0.05, filterFreq = 1400) => {
+        const sampleRate = ctx.sampleRate;
+        const buffer = ctx.createBuffer(1, Math.max(1, Math.floor(sampleRate * dur)), sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < data.length; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 2);
+        }
+        const source = ctx.createBufferSource();
+        const filter = ctx.createBiquadFilter();
+        const gain = ctx.createGain();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(filterFreq, now + start);
+        filter.Q.setValueAtTime(0.9, now + start);
+        gain.gain.setValueAtTime(0.0001, now + start);
+        gain.gain.exponentialRampToValueAtTime(gainValue, now + start + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
+        source.buffer = buffer;
+        source.connect(filter);
+        filter.connect(gain);
+        gain.connect(master);
+        source.start(now + start);
+    };
+
+    const ping = (start, freq, dur, type = 'sine', gainValue = 0.16) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now + start);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.74, now + start + dur);
+        gain.gain.setValueAtTime(0.0001, now + start);
+        gain.gain.exponentialRampToValueAtTime(gainValue, now + start + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
+        osc.connect(gain);
+        gain.connect(master);
+        osc.start(now + start);
+        osc.stop(now + start + dur + 0.03);
+    };
+
+    ping(0.04, 520, 0.12, 'triangle', 0.026);
+    ping(0.44, 390, 0.16, 'triangle', 0.022);
+    noiseBurst(1.32, 0.16, 0.035, 980);
+    ping(1.46, 108, 0.26, 'sine', 0.105);
+    ping(1.72, 1540, 0.08, 'triangle', 0.04);
+    noiseBurst(1.82, 0.2, 0.028, 520);
+    ping(1.92, 680, 0.22, 'sine', 0.026);
+
+    setTimeout(() => ctx.close?.(), 2200);
 }
 
 async function handleAddUrl() {
@@ -1147,23 +1224,20 @@ async function handleAddUrl() {
     statusEl.classList.remove('hidden');
     statusEl.innerHTML = '';
 
-    // Show elegant loading overlay
-    _showSaveOverlay('正在解析链接，AI 分类中');
+    _showSaveOverlay('信息收录中');
 
     try {
         const res = await api.addEntry(url, noteInput.value.trim());
         const entry = res.data;
 
-        // Hide loading overlay
         _hideSaveOverlay();
 
-        // 🎉 Corner cannons → center burst → success card
-        playCelebration(entry.category);
+        playCelebration(entry);
 
         urlInput.value = '';
         noteInput.value = '';
         await loadData();
-        setTimeout(() => closeQuickAdd(), 3200);
+        setTimeout(() => closeQuickAdd(), 3900);
     } catch (err) {
         _hideSaveOverlay();
         statusEl.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ba1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>${escapeHtml(err.message)}`;

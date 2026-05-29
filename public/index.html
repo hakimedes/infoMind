@@ -94,10 +94,11 @@ tailwind.config = {
     ::-webkit-scrollbar-thumb { background: #d0c5b4; border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: #7e7667; }
 </style>
+<link href="/css/kinetic.css?v=20260529-apple-system" rel="stylesheet"/>
 </head>
 <body class="bg-background text-on-surface antialiased flex h-screen overflow-hidden">
 <!-- SideNavBar -->
-<aside class="h-screen w-72 flex flex-col bg-surface-container-low hidden md:flex z-40 fixed left-0 top-0">
+<aside class="app-sidebar h-screen w-72 flex flex-col bg-surface-container-low z-40 fixed left-0 top-0">
     <div class="p-6 space-y-8 flex flex-col h-full">
         <div class="flex items-center space-x-3 mb-8">
             <div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden">
@@ -122,7 +123,7 @@ tailwind.config = {
                 <span>洞察</span>
             </a>
         </nav>
-        <div class="mt-auto">
+        <div class="mt-auto nav-capture-slot">
             <button id="addBtn" class="w-full py-3 px-4 bg-gradient-to-r from-primary to-primary-container text-on-primary rounded-md font-body font-medium shadow-[0_12px_32px_rgba(28,28,22,0.06)] hover:opacity-90 transition-opacity flex justify-center items-center space-x-2">
                 <span class="material-symbols-outlined text-sm">add</span>
                 <span>收录链接</span>
@@ -156,7 +157,7 @@ tailwind.config = {
             </div>
         </div>
         <!-- Quick Add Bar -->
-        <div id="quickAddBar" class="bg-surface-container-low border-b border-outline-variant/20 px-8 py-4 flex gap-4 hidden">
+    <div id="quickAddBar" class="quick-add-kinetic bg-surface-container-low border-b border-outline-variant/20 px-8 py-4 flex gap-4 hidden">
             <input type="url" id="urlInput" placeholder="粘贴链接..." class="flex-1 bg-surface border-b border-outline-variant/20 px-3 py-2 text-sm outline-none" />
             <input type="text" id="noteInput" placeholder="备注（可选）" class="flex-1 bg-surface border-b border-outline-variant/20 px-3 py-2 text-sm outline-none" />
             <button id="addSubmitBtn" class="bg-primary text-on-primary px-4 py-2 rounded text-sm hover:opacity-90">保存</button>
@@ -311,8 +312,8 @@ tailwind.config = {
     <div id="settingsPanel" class="bg-surface-container-lowest rounded-xl shadow-[0px_12px_32px_rgba(28,28,26,0.06)] w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div class="px-8 py-6 bg-surface-container-lowest border-b-2 border-surface-container-low flex justify-between items-center sticky top-0 z-10">
             <div>
-                <h2 class="font-headline text-2xl font-bold text-on-surface tracking-tight">Configuration</h2>
-                <p class="font-body text-sm text-on-surface-variant mt-1">Adjust your environment parameters.</p>
+                <h2 class="font-headline text-2xl font-bold text-on-surface tracking-tight">设置</h2>
+                <p class="font-body text-sm text-on-surface-variant mt-1">配置模型、连接 Agent 与外部服务。</p>
             </div>
             <button id="settingsClose" class="text-on-surface-variant hover:text-on-surface transition-colors p-2 rounded-full hover:bg-surface-container-low">
                 <span class="material-symbols-outlined">close</span>
@@ -321,7 +322,7 @@ tailwind.config = {
         <div class="p-8 overflow-y-auto bg-surface space-y-12 flex-1">
             <section class="space-y-6">
                 <h3 class="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[18px]">psychology</span> LLM Parameters
+                    <span class="material-symbols-outlined text-[18px]">psychology</span> LLM 参数
                 </h3>
                 <div class="space-y-6">
                     <div>
@@ -352,21 +353,46 @@ tailwind.config = {
             </section>
             <section class="space-y-6">
                 <h3 class="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[18px]">integration_instructions</span> Agent Integration
+                    <span class="material-symbols-outlined text-[18px]">hub</span> Agent 接入中心
                 </h3>
-                <div class="bg-surface-container-low p-6 rounded-lg text-sm">
-                    <p class="mb-2"><strong>服务器上一句命令接入 Agent:</strong></p>
-                    <code id="agentConnectCommand" class="block bg-surface-container-lowest p-2 rounded border border-outline-variant/20 mb-2 font-mono whitespace-pre-wrap break-all">cd ~/infoMind &amp;&amp; bash deploy/hermes/install-infomind-skill.sh</code>
-                    <button class="text-primary hover:underline font-label" onclick="copyAgentConnectCommand()">Copy Command</button>
+                <div class="bg-surface-container-low p-6 rounded-lg text-sm space-y-5">
+                    <div>
+                        <label class="block font-label text-sm text-on-surface font-medium mb-2">InfoMind 访问地址</label>
+                        <input id="agentBaseUrl" type="url" placeholder="https://your-infomind.example.com" class="w-full bg-surface-container-lowest border border-outline-variant/20 text-on-surface text-sm rounded-lg py-3 px-4 outline-none transition-colors" />
+                        <p class="mt-2 text-xs text-on-surface-variant">如果 Agent 不在同一台服务器，请填写它能访问到的公网或内网地址，不要用 localhost。</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block font-label text-sm text-on-surface font-medium mb-2">Agent 类型</label>
+                            <select id="agentType" class="w-full bg-surface-container-lowest border border-outline-variant/20 text-on-surface text-sm rounded-lg py-3 px-4 outline-none transition-colors">
+                                <option value="auto">自动识别 Hermes / OpenClaw / 通用</option>
+                                <option value="hermes">Hermes Agent</option>
+                                <option value="openclaw">OpenClaw</option>
+                                <option value="generic">通用 Markdown Skill</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-label text-sm text-on-surface font-medium mb-2">自定义 Skill 目录（可选）</label>
+                            <input id="agentSkillDir" type="text" placeholder="例如 ~/.my-agent/skills" class="w-full bg-surface-container-lowest border border-outline-variant/20 text-on-surface text-sm rounded-lg py-3 px-4 outline-none transition-colors" />
+                        </div>
+                    </div>
+                    <div>
+                        <p class="mb-2"><strong>在 Agent 所在机器运行这一行：</strong></p>
+                        <code id="agentConnectCommand" class="block bg-surface-container-lowest p-3 rounded-lg border border-outline-variant/20 mb-3 font-mono text-xs leading-relaxed whitespace-pre-wrap break-all">curl -fsSL http://127.0.0.1:3456/agent/install-infomind-agent.sh | env INFOMIND_BASE_URL=http://127.0.0.1:3456 INFOMIND_AGENT=auto bash</code>
+                        <div class="flex flex-wrap gap-3">
+                            <button type="button" class="text-primary hover:underline font-label" onclick="copyAgentConnectCommand()">复制命令</button>
+                            <span id="agentConnectHint" class="text-xs text-on-surface-variant">会安装 InfoMind skill，并写入正确的 API 地址。</span>
+                        </div>
+                    </div>
                 </div>
             </section>
         </div>
         <div class="px-8 py-6 bg-surface-container-lowest flex justify-between items-center z-10 border-t border-outline-variant/10">
             <div class="flex items-center gap-4">
-                <button id="testLlmBtn" class="font-label text-sm font-medium text-on-surface px-4 py-2 bg-surface-container-highest rounded hover:bg-outline-variant/20 transition-colors flex items-center gap-2"><span class="material-symbols-outlined text-sm">network_check</span> Test Connection</button>
+                <button id="testLlmBtn" class="font-label text-sm font-medium text-on-surface px-4 py-2 bg-surface-container-highest rounded hover:bg-outline-variant/20 transition-colors flex items-center gap-2"><span class="material-symbols-outlined text-sm">network_check</span> 测试连接</button>
                 <span id="testResult" class="text-sm font-label"></span>
             </div>
-            <button id="saveSettingsBtn" class="font-label text-sm font-medium bg-primary text-on-primary px-6 py-2 rounded hover:bg-primary-container transition-colors shadow-sm">Save Configuration</button>
+            <button id="saveSettingsBtn" class="font-label text-sm font-medium bg-primary text-on-primary px-6 py-2 rounded hover:bg-primary-container transition-colors shadow-sm">保存配置</button>
         </div>
     </div>
 </div>

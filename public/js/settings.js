@@ -7,6 +7,12 @@ function initSettings() {
     });
     document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
     document.getElementById('testLlmBtn').addEventListener('click', testLlmConnection);
+    ['agentBaseUrl', 'agentType', 'agentSkillDir'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const eventName = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(eventName, updateAgentConnectCommand);
+    });
 }
 
 async function openSettings() {
@@ -37,11 +43,8 @@ async function openSettings() {
     `;
     } catch { }
 
-    // Set Agent integration command
-    document.getElementById('agentConnectCommand').textContent = [
-        'cd ~/infoMind',
-        'bash deploy/hermes/install-infomind-skill.sh'
-    ].join(' && ');
+    initAgentConnectFields();
+    updateAgentConnectCommand();
 }
 
 function closeSettings() {
@@ -101,8 +104,63 @@ function toggleApiKeyVisibility() {
 }
 
 function copyAgentConnectCommand() {
+    updateAgentConnectCommand();
     const command = document.getElementById('agentConnectCommand').textContent;
     navigator.clipboard.writeText(command).then(() => window.showToast('已复制', 'success'));
+}
+
+function initAgentConnectFields() {
+    const baseInput = document.getElementById('agentBaseUrl');
+    const typeInput = document.getElementById('agentType');
+    const dirInput = document.getElementById('agentSkillDir');
+    if (!baseInput || !typeInput || !dirInput) return;
+
+    baseInput.value = localStorage.getItem('infomind.agentBaseUrl') || window.location.origin;
+    typeInput.value = localStorage.getItem('infomind.agentType') || 'auto';
+    dirInput.value = localStorage.getItem('infomind.agentSkillDir') || '';
+}
+
+function updateAgentConnectCommand() {
+    const commandEl = document.getElementById('agentConnectCommand');
+    if (!commandEl) return;
+
+    const baseInput = document.getElementById('agentBaseUrl');
+    const typeInput = document.getElementById('agentType');
+    const dirInput = document.getElementById('agentSkillDir');
+    const hintEl = document.getElementById('agentConnectHint');
+    const baseUrl = normalizeAgentBaseUrl(baseInput?.value || window.location.origin);
+    const agentType = typeInput?.value || 'auto';
+    const skillDir = (dirInput?.value || '').trim();
+
+    localStorage.setItem('infomind.agentBaseUrl', baseUrl);
+    localStorage.setItem('infomind.agentType', agentType);
+    localStorage.setItem('infomind.agentSkillDir', skillDir);
+
+    const scriptUrl = `${baseUrl}/agent/install-infomind-agent.sh`;
+    const envParts = [
+        `INFOMIND_BASE_URL=${shellQuote(baseUrl)}`,
+        `INFOMIND_AGENT=${shellQuote(agentType)}`,
+    ];
+    if (skillDir) envParts.push(`AGENT_SKILL_DIR=${shellQuote(skillDir)}`);
+
+    commandEl.textContent = `curl -fsSL ${shellQuote(scriptUrl)} | env ${envParts.join(' ')} bash`;
+
+    if (hintEl) {
+        hintEl.textContent = skillDir
+            ? '会安装到自定义目录，并把 InfoMind API 地址写入 skill。'
+            : agentType === 'auto'
+                ? '会自动识别 Hermes / OpenClaw；未识别时生成通用 skill 包。'
+                : `会按 ${typeInput.options[typeInput.selectedIndex]?.text || agentType} 方式安装。`;
+    }
+}
+
+function normalizeAgentBaseUrl(value) {
+    const trimmed = String(value || '').trim() || window.location.origin;
+    return trimmed.replace(/\/+$/, '');
+}
+
+function shellQuote(value) {
+    return `'${String(value).replace(/'/g, `'\"'\"'`)}'`;
 }
 
 window.initSettings = initSettings;
@@ -110,3 +168,4 @@ window.openSettings = openSettings;
 window.closeSettings = closeSettings;
 window.toggleApiKeyVisibility = toggleApiKeyVisibility;
 window.copyAgentConnectCommand = copyAgentConnectCommand;
+window.updateAgentConnectCommand = updateAgentConnectCommand;
